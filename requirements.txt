@@ -1,0 +1,12 @@
+python-dotenv
+tqdm
+ipykernel
+notebook
+scipy
+numpy
+pandas
+matplotlib
+seaborn
+scikit-learn
+torch
+torchvision

@@ -1,0 +1,11 @@
+.vscode
+
+__pycache__
+.ipynb_checkpoints
+
+temp
+temp.*
+
+.env
+
+.DS_Store
