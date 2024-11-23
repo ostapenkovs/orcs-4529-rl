@@ -24,7 +24,7 @@ class QNet(nn.Module):
     def __init__(self, obssize, actsize, hidden_dim, depth):
         super().__init__()
         self.layers = nn.ModuleList([nn.Linear(obssize, hidden_dim), nn.ReLU()])
-        
+
         for _ in range(depth):
             self.layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.ReLU()])
 
@@ -35,17 +35,24 @@ class QNet(nn.Module):
             x = layer(x)
         return x
 
+# TODO: include epsilon decay, update_params() interval
 class Agent:
     def __init__(self, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, gamma, eps):
-        self.principal = QNet(obsize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth)
-        self.target = QNet(obsize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth)
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+        self.principal = QNet(obsize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
+        self.target = QNet(obsize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
 
         self.optimizer = optim.Adam(self.principal.parameters(), lr=lr)
 
         self.buffer = ReplayBuffer(buffer_size=buffer_size, batch_size=batch_size)
 
+        self.initialize_buffer()
         self.update_params()
     
+    def initialize_buffer(self):
+        pass
+
     def update_params(self):
         self.target.load_state_dict(self.principal.state_dict())
     
