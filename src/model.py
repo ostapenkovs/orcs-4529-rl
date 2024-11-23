@@ -23,12 +23,12 @@ class ReplayBuffer:
 class QNet(nn.Module):
     def __init__(self, obssize, actsize, hidden_dim, depth):
         super().__init__()
-        layers = [nn.Linear(obssize, hidden_dim), nn.ReLU()]
+        self.layers = nn.ModuleList([nn.Linear(obssize, hidden_dim), nn.ReLU()])
+        
         for _ in range(depth):
-            layers.append( nn.Linear(hidden_dim, hidden_dim) )
-            layers.append( nn.ReLU() )
-        layers.append( nn.Linear(hidden_dim, actsize) )
-        self.layers = nn.Sequential(*layers)
+            self.layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.ReLU()])
+
+        self.layers.append(nn.Linear(hidden_dim, actsize))
     
     def forward(self, x):
         for layer in self.layers:
