@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from gym import Env, spaces
+import numpy as np
 
 class ReplayBuffer:
     def __init__(self, buffer_size, batch_size):
@@ -36,7 +38,91 @@ class QNet(nn.Module):
         return x
 
 class Environment:
-    pass
+    def __init__(self, price_paths, s_0=100, K=100, t1 = 0, t2 = 1.0, r = 0.01,  **kwargs):
+        """
+        Environment for American options with early exercise.
+        Args:
+            price_paths: Generatted price paths using (generate_gbm_paths or generate_heston_paths).
+            s_0: Initial stock price.
+            K: Strike price.
+            t1: Intitial time.
+            t2: Final time.
+            r: Risk-free rate.
+            steps: Number of steps to maturity.
+            path_params: Additional parameters for the price generator function.
+        """
+        # parameters
+        self.curr_path = -1  # Track current path index
+        self.current_step = 0  # Current step in the path
+        self.done = False
+        self.s_0 = s_0
+        self.K = K
+        self.t1 = t1
+        self.t2 = t2
+        self.r = r
+        self.price_paths = price_paths
+        self.nsim, self.nstep = price_paths.shape
+        self.dt =  (t2 - t1) / self.nstep
+
+
+        # Observation space: stock price, time to maturity, and intrinsic value
+        self.observation_space = spaces.Box(
+            low=np.array([0.0, 0.0, 0.0]),
+            high=np.array([np.inf, t2 - t1, np.inf]),
+            dtype=np.float32
+        )
+
+        # Action space: 0 = Hold, 1 = Exercise
+        self.action_space = spaces.Discrete(2)
+        self.reset()
+
+    def reset(self):
+        self.curr_path += 1
+        self.current_step = 0
+        self.done = False
+        self.S = self.price_paths[self.curr_path, self.current_step]  # Initial stock price
+        self.t = self.t2 - self.t1  
+        intrinsic_value = self.intrinsic_value(self.S)
+        return np.array([self.S, self.t, intrinsic_value], dtype=np.float32)
+
+
+    def step(self, action):
+        if self.done:
+            return
+
+        intrinsic_value = self.intrinsic_value(self.S)
+
+        reward = 0
+        if action == 1: # Exercise
+            reward = intrinsic_value
+            self.done = True
+        else:
+            reward = 0 # Not sure what to do here...
+
+        if not self.done:
+            self.current_step += 1
+            if self.current_step < self.nstep:
+                self.S = self.price_paths[self.curr_path, self.current_step]  
+                self.t -= self.dt  
+            else:
+                self.done = True  # End of path
+
+        intrinsic_value = self.intrinsic_value(self.S)
+        obs = np.array([self.S, self.t, intrinsic_value], dtype=np.float32)
+        info = {"intrinsic_value": intrinsic_value}
+
+        return obs, reward, self.done, info
+
+
+    def intrinsic_value(self, S):
+        return max(S - self.K, 0)
+
+    # def render(self):
+    #     print(f"Step: {self.current_step}, Stock Price: {self.S:.2f}, Time to Maturity: {self.t:.2f}")
+
+    def close(self):
+        pass
+
 
 # TODO: include epsilon decay, update_params() interval
 class Agent:

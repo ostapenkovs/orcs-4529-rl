@@ -135,6 +135,7 @@ class OptionPricingEnv:
 
         self.high = h
 
+        
         self.observation_space = spaces.Box(low = np.array([0, 0, 0, -np.inf]), high = np.array([np.inf, np.inf, np.inf, np.inf]))
         self.action_space = spaces.Discrete(num_actions)
 
