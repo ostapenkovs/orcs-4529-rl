@@ -36,7 +36,21 @@ class QNet(nn.Module):
         return x
 
 class Environment:
-    pass
+    def __init__(self, nsim, nstep, s_0, t1, t2):
+        self.prices = None # generate_gbm_paths()
+        self.curr_path = -1
+
+        self.s_0 = s_0
+        self.t1 = t1
+        self.t2 = t2
+        self.dt = (t2 - t1) / nstep
+
+    def reset(self):
+        self.curr_path += 1
+        return (self.s_0, self.t2 - self.t1)
+    
+    def __getitem__(self, j):
+        return self.prices[self.curr_path, j]
 
 # TODO: include epsilon decay, update_params() interval
 class Agent:
