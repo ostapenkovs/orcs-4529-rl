@@ -35,6 +35,9 @@ class QNet(nn.Module):
             x = layer(x)
         return x
 
+class Environment:
+    pass
+
 # TODO: include epsilon decay, update_params() interval
 class Agent:
     def __init__(self, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, gamma, eps):
