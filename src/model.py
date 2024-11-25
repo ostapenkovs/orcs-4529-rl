@@ -22,20 +22,34 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
+# class QNet(nn.Module):
+#     def __init__(self, obssize, actsize, hidden_dim, depth):
+#         super().__init__()
+#         self.layers = nn.ModuleList([nn.Linear(obssize, hidden_dim), nn.ReLU()])
+
+#         for _ in range(depth):
+#             self.layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.ReLU()])
+
+#         self.layers.append(nn.Linear(hidden_dim, actsize))
+    
+#     def forward(self, x):
+#         for layer in self.layers:
+#             x = layer(x)
+#         return x
+
+# Sequential more stable. We can try different things here
+
 class QNet(nn.Module):
     def __init__(self, obssize, actsize, hidden_dim, depth):
         super().__init__()
-        self.layers = nn.ModuleList([nn.Linear(obssize, hidden_dim), nn.ReLU()])
-
+        layers = [nn.Linear(obssize, hidden_dim), nn.ReLU()]
         for _ in range(depth):
-            self.layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.ReLU()])
+            layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.ReLU()])
+        layers.append(nn.Linear(hidden_dim, actsize))
+        self.model = nn.Sequential(*layers)
 
-        self.layers.append(nn.Linear(hidden_dim, actsize))
-    
     def forward(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
+        return self.model(x)
 
 class Environment:
     def __init__(self, price_paths, s_0=100, K=100, t1 = 0, t2 = 1.0, r = 0.01,  **kwargs):
@@ -78,10 +92,13 @@ class Environment:
 
     def reset(self):
         self.curr_path += 1
+        if self.curr_path >= self.price_paths.shape[0]:
+            self.curr_path = 0  # Loop back to the first path or raise an exception if preferred
+
         self.current_step = 0
         self.done = False
         self.S = self.price_paths[self.curr_path, self.current_step]  # Initial stock price
-        self.t = self.t2 - self.t1  
+        self.t = self.t2 - self.t1
         intrinsic_value = self.intrinsic_value(self.S)
         return np.array([self.S, self.t, intrinsic_value], dtype=np.float32)
 
@@ -91,21 +108,25 @@ class Environment:
             return
 
         intrinsic_value = self.intrinsic_value(self.S)
+        disc_factor = np.exp(-self.r * (self.current_step / self.nstep))
 
         reward = 0
         if action == 1: # Exercise
             reward = intrinsic_value
             self.done = True
         else:
-            reward = 0 # Not sure what to do here...
+            reward = -0.01 # Not sure what to do here... trying to add some theta decay
+
 
         if not self.done:
             self.current_step += 1
             if self.current_step < self.nstep:
-                self.S = self.price_paths[self.curr_path, self.current_step]  
-                self.t -= self.dt  
+                self.S = self.price_paths[self.curr_path, self.current_step]
+                self.t -= self.dt
             else:
-                self.done = True  # End of path
+                # At expiry, the payoff is intrinsic value
+                reward = disc_factor * intrinsic_value
+                self.done = True
 
         intrinsic_value = self.intrinsic_value(self.S)
         obs = np.array([self.S, self.t, intrinsic_value], dtype=np.float32)
@@ -129,27 +150,68 @@ class Agent:
     def __init__(self, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, gamma, eps):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-        self.principal = QNet(obsize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
-        self.target = QNet(obsize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
+        self.principal = QNet(obssize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
+        self.target = QNet(obssize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
 
         self.optimizer = optim.Adam(self.principal.parameters(), lr=lr)
 
         self.buffer = ReplayBuffer(buffer_size=buffer_size, batch_size=batch_size)
 
-        self.initialize_buffer()
+        self.gamma = gamma
+        self.eps = eps
+
+        #self.initialize_buffer()
         self.update_params()
     
-    def initialize_buffer(self):
-        pass
+    def initialize_buffer(self, env, steps=1000):
+        """
+        Populate the replay buffer with random experiences.
+        Args:
+            env: The environment to interact with.
+            steps: Number of random steps to populate the buffer.
+        """
+        state = env.reset()
+        for _ in range(steps):
+            action = env.action_space.sample()  
+            next_state, reward, done, _ = env.step(action)
+            self.buffer.add(state, action, reward, next_state, done)
+            if done:
+                state = env.reset()  
+            else:
+                state = next_state
 
     def update_params(self):
         self.target.load_state_dict(self.principal.state_dict())
     
     def act(self, state):
-        pass
+        """Select an action based on epsilon-greedy policy."""
+        if random.random() < self.eps:
+            return random.randint(0, 1)  # Random action: Hold or Exercise
+        state = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            return torch.argmax(self.principal(state)).item()
 
     def learn(self):
-        pass
+        """Train the principal network on sampled experience."""
+        if len(self.buffer) < self.buffer.batch_size:
+            return
+
+        states, actions, rewards, next_states, dones = self.buffer.sample()
+        states = states.to(self.device)
+        next_states = next_states.to(self.device)
+        actions = actions.long().to(self.device)
+        rewards = rewards.to(self.device)
+        dones = dones.to(self.device)
+
+        q_values = self.principal(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        with torch.no_grad():
+            max_next_q_values = self.target(next_states).max(1)[0]
+            targets = rewards + self.gamma * max_next_q_values * (1 - dones)
+
+        loss = nn.MSELoss()(q_values, targets)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
 if __name__ == '__main__':
     pass
