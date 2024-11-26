@@ -79,13 +79,22 @@ class Environment:
         self.dt =  (t2 - t1) / self.nstep
         self.option_type = option_type
 
+        self.prev_ratio = 0  # For momentum
 
-        # Observation space: stock price, time to maturity, and intrinsic value (or ratio)
+        # Observation space: [Stock price, Time to maturity, Ratio, Delta ratio]
         self.observation_space = spaces.Box(
-            low=np.array([0.0, 0.0, 0.0]),
-            high=np.array([np.inf, t2 - t1, np.inf]),
+            low=np.array([0.0, 0.0, -np.inf, -np.inf]),
+            high=np.array([np.inf, t2 - t1, np.inf, np.inf]),
             dtype=np.float32
         )
+
+
+        # # Observation space: stock price, time to maturity, and intrinsic value (or ratio)
+        # self.observation_space = spaces.Box(
+        #     low=np.array([0.0, 0.0, 0.0]),
+        #     high=np.array([np.inf, t2 - t1, np.inf]),
+        #     dtype=np.float32
+        # )
 
         # Action space: 0 = Hold, 1 = Exercise
         self.action_space = spaces.Discrete(2)
@@ -94,7 +103,7 @@ class Environment:
     def reset(self):
         self.curr_path += 1
         if self.curr_path >= self.price_paths.shape[0]:
-            self.curr_path = 0  # Loop back to the first path or raise an exception if preferred
+            self.curr_path = 0  # Loop back to the first path
 
         self.current_step = 0
         self.done = False
@@ -102,8 +111,9 @@ class Environment:
         self.t = self.t2 - self.t1
         intrinsic_value = self.intrinsic_value(self.S)
         ratio = self.S/self.K
-
-        return np.array([self.S, self.t, ratio], dtype=np.float32)
+        self.prev_ratio = ratio  # Initialize prev_ratio for delta_ratio calculation
+        delta_ratio = 0.0  # No change at the start
+        return np.array([self.S, self.t, ratio, delta_ratio], dtype=np.float32)
 
 
     def step(self, action):
@@ -141,9 +151,14 @@ class Environment:
                 self.done = True
 
 
-        intrinsic_value = disc_factor * self.intrinsic_value(self.S)
+        #intrinsic_value = disc_factor * self.intrinsic_value(self.S)
         ratio = self.S/self.K
-        obs = np.array([self.S, self.t, ratio], dtype=np.float32)
+        delta_ratio = ratio - self.prev_ratio
+        self.prev_ratio = ratio  # Update for next step
+
+        # Observation
+        #obs = np.array([self.S, self.t, ratio], dtype=np.float32)
+        obs = np.array([self.S, self.t, ratio, delta_ratio], dtype=np.float32)
         info = {"intrinsic_value": intrinsic_value}
 
         return obs, reward, self.done, info
