@@ -112,10 +112,13 @@ class Environment:
 
         reward = 0
         if action == 1: # Exercise
-            reward = intrinsic_value
+            reward = disc_factor * intrinsic_value
             self.done = True
         else:
-            reward = -0.01 # Not sure what to do here... trying to add some theta decay
+            reward = 0
+            #-0.01 * np.exp(self.r * (self.current_step / self.nstep))
+            #reward = -0.01 # Not sure what to do here... trying to add some theta decay
+            #WHAT IF: we price the vanilla equivalent and then do -price
 
 
         if not self.done:
@@ -126,7 +129,14 @@ class Environment:
             else:
                 # At expiry, the payoff is intrinsic value
                 reward = disc_factor * intrinsic_value
+
+                # if intrinsic_value > 0:
+                #     reward = disc_factor * intrinsic_value
+                # else:
+                #     reward = -0.01 * np.exp(self.r * (self.current_step / self.nstep))
+
                 self.done = True
+
 
         intrinsic_value = self.intrinsic_value(self.S)
         obs = np.array([self.S, self.t, intrinsic_value], dtype=np.float32)
@@ -143,6 +153,7 @@ class Environment:
 
     def close(self):
         pass
+
 
 
 # TODO: include epsilon decay, update_params() interval
