@@ -204,15 +204,28 @@ class Agent:
             env: The environment to interact with.
             steps: Number of random steps to populate the buffer.
         """
-        state = env.reset()
         for _ in range(steps):
-            action = env.action_space.sample()  
-            next_state, reward, done, _ = env.step(action)
-            self.buffer.add(state, action, reward, next_state, done)
-            if done:
-                state = env.reset()  
-            else:
-                state = next_state
+                state = env.reset()  # Start a new episode
+                done = False
+
+                while not done:
+                    action = env.action_space.sample()  # Random action
+                    next_state, reward, done, _ = env.step(action)
+                    self.buffer.add(state, action, reward, next_state, done)
+                    state = next_state
+
+                    # Debugging: Check if the final state is reached
+                    if done:
+                        print(f"Final state added to buffer: {next_state}, Reward: {reward}, Done: {done}")
+
+        # for _ in range(steps):
+        #     state = env.reset()
+        #     done = False
+        #     while not done:
+        #         action = env.action_space.sample()  # Random action
+        #         next_state, reward, done, _ = env.step(action)
+        #         self.buffer.add(state, action, reward, next_state, done)
+        #         state = next_state
 
     def update_params(self):
         self.target.load_state_dict(self.principal.state_dict())
