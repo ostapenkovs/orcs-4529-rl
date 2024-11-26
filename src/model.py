@@ -52,7 +52,7 @@ class QNet(nn.Module):
         return self.model(x)
 
 class Environment:
-    def __init__(self, price_paths, s_0=100, K=100, t1 = 0, t2 = 1.0, r = 0.01,  **kwargs):
+    def __init__(self, price_paths, s_0=100, K=100, t1 = 0, t2 = 1.0, r = 0.01, option_type = "call",  **kwargs):
         """
         Environment for American options with early exercise.
         Args:
@@ -77,9 +77,10 @@ class Environment:
         self.price_paths = price_paths
         self.nsim, self.nstep = price_paths.shape
         self.dt =  (t2 - t1) / self.nstep
+        self.option_type = option_type
 
 
-        # Observation space: stock price, time to maturity, and intrinsic value
+        # Observation space: stock price, time to maturity, and intrinsic value (or ratio)
         self.observation_space = spaces.Box(
             low=np.array([0.0, 0.0, 0.0]),
             high=np.array([np.inf, t2 - t1, np.inf]),
@@ -100,7 +101,9 @@ class Environment:
         self.S = self.price_paths[self.curr_path, self.current_step]  # Initial stock price
         self.t = self.t2 - self.t1
         intrinsic_value = self.intrinsic_value(self.S)
-        return np.array([self.S, self.t, intrinsic_value], dtype=np.float32)
+        ratio = self.S/self.K
+
+        return np.array([self.S, self.t, ratio], dtype=np.float32)
 
 
     def step(self, action):
@@ -138,15 +141,20 @@ class Environment:
                 self.done = True
 
 
-        intrinsic_value = self.intrinsic_value(self.S)
-        obs = np.array([self.S, self.t, intrinsic_value], dtype=np.float32)
+        intrinsic_value = disc_factor * self.intrinsic_value(self.S)
+        ratio = self.S/self.K
+        obs = np.array([self.S, self.t, ratio], dtype=np.float32)
         info = {"intrinsic_value": intrinsic_value}
 
         return obs, reward, self.done, info
 
 
     def intrinsic_value(self, S):
-        return max(S - self.K, 0)
+
+        if self.option_type == "put":
+            return max(self.K - S, 0)
+        else:
+            return max(S - self.K, 0)
 
     # def render(self):
     #     print(f"Step: {self.current_step}, Stock Price: {self.S:.2f}, Time to Maturity: {self.t:.2f}")
