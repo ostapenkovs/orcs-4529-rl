@@ -127,8 +127,9 @@ class Environment:
         self.prev_ratio = ratio  # Initialize prev_ratio for delta_ratio calculation
         delta_ratio = 0.0  # No change at the start
         momentum = 0.0
-        expected_future_payoff = self.compute_expected_future_payoff()
-        return np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_future_payoff], dtype=np.float32)
+        #expected_future_payoff = self.compute_expected_future_payoff()
+        # return np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_future_payoff], dtype=np.float32)
+        return np.array([self.S, self.t, ratio, delta_ratio, momentum], dtype=np.float32)
 
 
 
@@ -173,11 +174,12 @@ class Environment:
         self.prev_ratio = ratio  # Update for next step
 
         momentum = self.compute_momentum()
-        expected_future_payoff = self.compute_expected_future_payoff()
+        #expected_future_payoff = self.compute_expected_future_payoff()
 
         # Observation
         #obs = np.array([self.S, self.t, ratio], dtype=np.float32)
-        obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_future_payoff], dtype=np.float32)
+        obs = np.array([self.S, self.t, ratio, delta_ratio, momentum], dtype=np.float32)
+        #obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_future_payoff], dtype=np.float32)        
         info = {"intrinsic_value": intrinsic_value}
         return obs, reward, self.done, info
 
@@ -188,12 +190,12 @@ class Environment:
             return self.S - prev_price
         return 0.0
 
-    def compute_expected_future_payoff(self):
-        """Estimate the expected future payoff."""
-        if self.current_step < self.nstep - 1:
-            remaining_prices = self.price_paths[self.curr_path, self.current_step:]
-            return np.mean(np.maximum(remaining_prices - self.K, 0)) if self.option_type == "call" else np.mean(np.maximum(self.K - remaining_prices, 0))
-        return 0.0
+    # def compute_expected_future_payoff(self):
+    #     """Estimate the expected future payoff."""
+    #     if self.current_step < self.nstep - 1:
+    #         remaining_prices = self.price_paths[self.curr_path, self.current_step:]
+    #         return np.mean(np.maximum(remaining_prices - self.K, 0)) if self.option_type == "call" else np.mean(np.maximum(self.K - remaining_prices, 0))
+    #     return 0.0
 
 
     def intrinsic_value(self, S):
