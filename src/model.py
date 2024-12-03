@@ -17,7 +17,18 @@ class ReplayBuffer:
 
     def sample(self):
         batch = random.sample(self.buffer, self.batch_size)
-        return [torch.tensor(x, dtype=torch.float32) for x in zip(*batch)]
+        # Convert the batch of tuples to a numpy array
+        batch_np = np.array(batch, dtype=object)
+        # Unpack the numpy array into separate components
+        states, actions, rewards, next_states, dones = map(np.stack, zip(*batch_np))
+        
+        return (
+            torch.tensor(states, dtype=torch.float32),
+            torch.tensor(actions, dtype=torch.int64),  # Ensure actions are int64
+            torch.tensor(rewards, dtype=torch.float32),
+            torch.tensor(next_states, dtype=torch.float32),
+            torch.tensor(dones, dtype=torch.float32),
+        )
 
     def __len__(self):
         return len(self.buffer)
@@ -42,6 +53,8 @@ class ReplayBuffer:
 class QNet(nn.Module):
     def __init__(self, obssize, actsize, hidden_dim, depth):
         super().__init__()
+        self.obssize = obssize  # Store input size
+        self.actsize = actsize  # Store action size
         layers = [nn.Linear(obssize, hidden_dim), nn.ReLU()]
         for _ in range(depth):
             layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.ReLU()])
@@ -113,7 +126,10 @@ class Environment:
         ratio = self.S/self.K
         self.prev_ratio = ratio  # Initialize prev_ratio for delta_ratio calculation
         delta_ratio = 0.0  # No change at the start
-        return np.array([self.S, self.t, ratio, delta_ratio], dtype=np.float32)
+        momentum = 0.0
+        expected_future_payoff = self.compute_expected_future_payoff()
+        return np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_future_payoff], dtype=np.float32)
+
 
 
     def step(self, action):
@@ -156,12 +172,28 @@ class Environment:
         delta_ratio = ratio - self.prev_ratio
         self.prev_ratio = ratio  # Update for next step
 
+        momentum = self.compute_momentum()
+        expected_future_payoff = self.compute_expected_future_payoff()
+
         # Observation
         #obs = np.array([self.S, self.t, ratio], dtype=np.float32)
-        obs = np.array([self.S, self.t, ratio, delta_ratio], dtype=np.float32)
+        obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_future_payoff], dtype=np.float32)
         info = {"intrinsic_value": intrinsic_value}
-
         return obs, reward, self.done, info
+
+    def compute_momentum(self):
+        """Compute momentum based on recent price changes."""
+        if self.current_step > 1:
+            prev_price = self.price_paths[self.curr_path, self.current_step - 1]
+            return self.S - prev_price
+        return 0.0
+
+    def compute_expected_future_payoff(self):
+        """Estimate the expected future payoff."""
+        if self.current_step < self.nstep - 1:
+            remaining_prices = self.price_paths[self.curr_path, self.current_step:]
+            return np.mean(np.maximum(remaining_prices - self.K, 0)) if self.option_type == "call" else np.mean(np.maximum(self.K - remaining_prices, 0))
+        return 0.0
 
 
     def intrinsic_value(self, S):
@@ -181,7 +213,7 @@ class Environment:
 
 # TODO: include epsilon decay, update_params() interval
 class Agent:
-    def __init__(self, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, gamma, eps):
+    def __init__(self, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, gamma, eps_start, eps_min, eps_decay):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
         self.principal = QNet(obssize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
@@ -192,9 +224,10 @@ class Agent:
         self.buffer = ReplayBuffer(buffer_size=buffer_size, batch_size=batch_size)
 
         self.gamma = gamma
-        self.eps = eps
+        self.eps = eps_start
+        self.eps_min = eps_min
+        self.eps_decay = eps_decay
 
-        #self.initialize_buffer()
         self.update_params()
     
     def initialize_buffer(self, env, steps=1000):
