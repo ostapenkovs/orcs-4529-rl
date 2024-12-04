@@ -102,8 +102,13 @@ class Environment:
         self.h = h
         self.k = k
 
-    def random_action(self):
-        return self.rng.choice(range(0, Action.NUM_ACTIONS))
+        self.DIM_STATE = 4
+
+    def _compute_momentum(self):
+        if self.curr_step > 0:
+            prev_price = self.prices[self.curr_sim, self.curr_step - 1]
+            return self.s - prev_price
+        return 0.0
 
     def _get_obs(self):
         ratio = self.s / self.k
@@ -120,6 +125,9 @@ class Environment:
             self.s, self.t, ratio, momentum
         ]
         return obs
+
+    def random_action(self):
+        return self.rng.choice(range(0, Action.NUM_ACTIONS))
 
     def reset(self):
         self.curr_sim = (self.curr_sim + 1) % self.nsim if hasattr(self, 'curr_sim') else 0
@@ -158,12 +166,6 @@ class Environment:
 
         return self._get_obs(), reward, self.done
 
-    def _compute_momentum(self):
-        if self.curr_step > 0:
-            prev_price = self.prices[self.curr_sim, self.curr_step - 1]
-            return self.s - prev_price
-        return 0.0
-
     # def _compute_expected_future_payoff(self):
     #     remaining_prices = self.price_paths[self.curr_path, self.current_step:]
     #     payoffs = np.maximum(remaining_prices - self.K, 0) if self.option_type == "call" else np.maximum(self.K - remaining_prices, 0)
@@ -174,7 +176,7 @@ class Environment:
 
 # --- Agent ---
 class Agent:
-    def __init__(self, env, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, buffer_interval, model_interval, gamma, eps, eps_decay, eps_min):
+    def __init__(self, env, hidden_dim, depth, lr, buffer_size, batch_size, buffer_interval, model_interval, gamma, eps, eps_decay, eps_min):
         self.device = torch.device(
             'cuda:0' if torch.cuda.is_available()  else \
             'mps' if torch.backends.mps.is_available() else 'cpu'
@@ -182,8 +184,8 @@ class Agent:
 
         self.env = env
 
-        self.principal = QNet(obssize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
-        self.target = QNet(obssize=obssize, actsize=actsize, hidden_dim=hidden_dim, depth=depth).to(self.device)
+        self.principal = QNet(obssize=self.env.DIM_STATE, actsize=Action.NUM_ACTIONS, hidden_dim=hidden_dim, depth=depth).to(self.device)
+        self.target = QNet(obssize=self.env.DIM_STATE, actsize=Action.NUM_ACTIONS, hidden_dim=hidden_dim, depth=depth).to(self.device)
 
         self.optimizer = optim.Adam(self.principal.parameters(), lr=lr)
         self.criterion = nn.MSELoss()
@@ -296,7 +298,6 @@ class Agent:
             losses[episode] = loss_sum
             rewards[episode] = rew_sum
         
-
             if verbose and episode % 50 == 0:
                 print(f"Episode {episode + 1}/{nepisode}: Total Reward = {rew_sum:.2f}, Loss = {loss_sum:.4f}, Eps = {self.eps:.4f}")
 
@@ -337,6 +338,24 @@ class Agent:
         plt.show()
 
         return losses, rewards
+
+    def eval(self, nepisode):
+        rewards = np.zeros(nepisode)
+
+        for episode in range(nepisode):
+            obs = self.env.reset()
+            done = False
+            rew_sum = 0
+
+            while not done:
+                action = self.act(state=obs)
+                newobs, reward, done = self.env.step(action=action)
+                obs = newobs
+                rew_sum += reward
+
+            rewards[episode] = rew_sum
+
+        return rewards.mean()
 
 if __name__ == '__main__':
     pass
