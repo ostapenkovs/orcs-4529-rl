@@ -174,7 +174,7 @@ class Environment:
 
 # --- Agent ---
 class Agent:
-    def __init__(self, env, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, update_freq, gamma, eps, eps_decay, eps_min):
+    def __init__(self, env, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, buffer_interval, model_interval, gamma, eps, eps_decay, eps_min):
         self.device = torch.device(
             'cuda:0' if torch.cuda.is_available()  else \
             'mps' if torch.backends.mps.is_available() else 'cpu'
@@ -190,7 +190,9 @@ class Agent:
 
         self.buffer = ReplayBuffer(buffer_size=buffer_size, batch_size=batch_size)
 
-        self.update_freq = update_freq
+        self.buffer_interval = buffer_interval
+        self.model_interval = model_interval
+
         self.gamma = gamma
         self.eps = eps
         self.eps_decay = eps_decay
@@ -257,6 +259,44 @@ class Agent:
         ### PRINCIPAL ###
 
         return loss.item()
+
+    def train(self, nepisode, notebook):
+        if notebook: from tqdm.notebook import tqdm
+        else:        from tqdm import tqdm
+
+        totalstep = 0
+        losses = np.zeros(nepisode)
+        rewards = np.zeros(nepisode)
+
+        for episode in tqdm(range(nepisode), desc='Episode', leave=True):
+            obs = self.env.reset()
+            done = False
+            loss_sum = rew_sum = 0
+
+            while not done:
+                action = self.act(state=obs)
+                newobs, reward, done = self.env.step(action=action)
+
+                self.buffer.add(
+                    state=obs, action=action, reward=reward, next_state=newobs, done=done
+                )
+
+                if totalstep % self.buffer_interval == 0:
+                    loss_sum += self.learn()
+                
+                if totalstep % self.model_interval == 0:
+                    self.update_params()
+                
+                totalstep += 1
+                obs = newobs
+                rew_sum += reward
+            
+            self.eps = max(self.eps * self.eps_decay, self.eps_min)
+            
+            losses[episode] = loss_sum
+            rewards[episode] = rew_sum
+        
+        return losses, rewards
 
 if __name__ == '__main__':
     pass
