@@ -102,27 +102,35 @@ class Environment:
         self.h = h
         self.k = k
 
-        self.DIM_STATE = 4
+        self.DIM_STATE = len(self.reset())
 
     def _compute_momentum(self):
         if self.curr_step > 0:
             prev_price = self.prices[self.curr_sim, self.curr_step - 1]
             return self.s - prev_price
         return 0.0
+    
+    def _compute_expected_future_payoff(self):
+        remaining_prices = self.prices[self.curr_sim, self.curr_step:]
+        payoffs = self.h(remaining_prices, self.k)
+        return np.mean(payoffs) if len(payoffs) > 0 else 0.0
+
+    def _intrinsic_value(self):
+        return self.h(self.s, self.k)
 
     def _get_obs(self):
         ratio = self.s / self.k
         # delta_ratio = ratio - self.prev_ratio
         # self.prev_ratio = ratio
         momentum = self._compute_momentum()
-        # expected_payoff = self._compute_expected_future_payoff()
+        expected_payoff = self._compute_expected_future_payoff()
         # obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_payoff], dtype=np.float32)
         # # Normalize the observation
         # obs_mean = np.mean(obs)
         # obs_std = np.std(obs) + 1e-5  # Add epsilon to prevent division by zero
         # normalized_obs = (obs - obs_mean) / obs_std
         obs = [
-            self.s, self.t, ratio, momentum
+            self.s, self.t, ratio, momentum, expected_payoff, self._intrinsic_value()
         ]
         return obs
 
@@ -150,8 +158,10 @@ class Environment:
 
         if action == Action.EXER or self.curr_step == self.nstep - 1:
             disc = exp(-self.r * (self.curr_step + 1) * self.dt)
+
+            payoff = self._intrinsic_value()
             
-            reward = disc * self.h(self.s, self.k)
+            reward = disc * payoff
             
             self.done = True
         
@@ -165,14 +175,6 @@ class Environment:
             self.t -= self.dt
 
         return self._get_obs(), reward, self.done
-
-    # def _compute_expected_future_payoff(self):
-    #     remaining_prices = self.price_paths[self.curr_path, self.current_step:]
-    #     payoffs = np.maximum(remaining_prices - self.K, 0) if self.option_type == "call" else np.maximum(self.K - remaining_prices, 0)
-    #     return np.mean(payoffs) if len(payoffs) > 0 else 0.0
-
-    # def _intrinsic_value(self, S):
-    #     return max(S - self.K, 0) if self.option_type == "call" else max(self.K - S, 0)
 
 # --- Agent ---
 class Agent:
@@ -300,11 +302,13 @@ class Agent:
             
             losses[episode] = loss_sum
             rewards[episode] = rew_sum
+            path_lengths[episode] = steps
         
 
             if verbose and episode % 100 == 0:
-                moving_avg_reward = np.mean(rewards[-ma_window:]) if len(rewards) >= ma_window else np.mean(rewards)
-                moving_avg_holding = np.mean(path_lengths[-ma_window:]) if len(path_lengths) >= ma_window else np.mean(path_lengths)
+                start = max(0, episode - ma_window + 1)
+                moving_avg_reward = np.mean(rewards[start:episode + 1])
+                moving_avg_holding = np.mean(path_lengths[start:episode + 1])
                 print(
                     f"Episode {episode}/{nepisode}, "
                     f"Total Reward: {rew_sum:.2f}, "
