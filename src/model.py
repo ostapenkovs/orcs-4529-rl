@@ -213,36 +213,50 @@ class Agent:
     def update_params(self):
         self.target.load_state_dict(self.principal.state_dict())
 
-    # def act(self, state):
-    #     if random.random() < self.eps:
-    #         return random.randint(0, 1)
-    #     state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
-    #     with torch.no_grad():
-    #         return torch.argmax(self.principal(state_tensor)).item()
-
-    # def learn(self):
-    #     if len(self.buffer) < self.buffer.batch_size:
-    #         return
-    #     states, actions, rewards, next_states, dones = self.buffer.sample()
-    #     states, next_states = states.to(self.device), next_states.to(self.device)
-    #     actions, rewards, dones = actions.to(self.device), rewards.to(self.device), dones.to(self.device)
-
-    #     # Current Q values
-    #     q_values = self.principal(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+    def act(self, state):
+        if self.env.rng.uniform(low=0, high=1) > self.eps:
+            state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(self.device)
+            
+            self.principal.eval()
+            with torch.no_grad():
+                action = torch.argmax(self.principal(state_tensor)).item()
         
-    #     # Double DQN target calculation
-    #     with torch.no_grad():
-    #         # Action selection is done using the principal network
-    #         next_actions = self.principal(next_states).argmax(1).unsqueeze(1)
-    #         # Q-values are evaluated using the target network
-    #         next_q_values = self.target(next_states).gather(1, next_actions).squeeze(1)
-    #         targets = rewards + self.gamma * next_q_values * (1 - dones)
+        else:
+            action = self.env.random_action()
+        
+        return action
 
-    #     # Compute loss
-    #     loss = nn.MSELoss()(q_values, targets)
-    #     self.optimizer.zero_grad()
-    #     loss.backward()
-    #     self.optimizer.step()
+    def learn(self):
+        states, actions, rewards, next_states, dones = self.buffer.sample()
+        
+        states = states.to(self.device)
+        actions = actions.to(self.device)
+        rewards = rewards.to(self.device)
+        next_states = next_states.to(self.device)
+        dones = dones.to(self.device)
+        
+        ### TARGET ###
+        self.target.eval()
+        with torch.no_grad():
+            q_target = self.target(next_states)
+            max_q, _ = torch.max(q_target, dim=-1)
+            q_target = rewards + self.gamma * (1-dones) * max_q
+        ### TARGET ###
+
+        ### PRINCIPAL ###
+        self.principal.train()
+
+        self.optimizer.zero_grad()
+
+        # getting Q-value of action taken in every sample of the batch
+        q_values = self.principal(states).gather(1, actions.long().view(-1, 1)).view(-1)
+        
+        loss = self.criterion(q_values, q_target)
+        loss.backward()
+        self.optimizer.step()
+        ### PRINCIPAL ###
+
+        return loss.item()
 
 if __name__ == '__main__':
     pass
