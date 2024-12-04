@@ -106,10 +106,10 @@ class Environment:
         return self.rng.choice(range(0, Action.NUM_ACTIONS))
 
     def _get_obs(self):
-        # ratio = self.S / self.K
+        ratio = self.s / self.k
         # delta_ratio = ratio - self.prev_ratio
         # self.prev_ratio = ratio
-        # momentum = self._compute_momentum()
+        momentum = self._compute_momentum()
         # expected_payoff = self._compute_expected_future_payoff()
         # obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_payoff], dtype=np.float32)
         # # Normalize the observation
@@ -117,7 +117,7 @@ class Environment:
         # obs_std = np.std(obs) + 1e-5  # Add epsilon to prevent division by zero
         # normalized_obs = (obs - obs_mean) / obs_std
         obs = [
-            self.s, self.t
+            self.s, self.t, ratio, momentum
         ]
         return obs
 
@@ -158,11 +158,11 @@ class Environment:
 
         return self._get_obs(), reward, self.done
 
-    # def _compute_momentum(self):
-    #     if self.current_step > 0:
-    #         prev_price = self.price_paths[self.curr_path, self.current_step - 1]
-    #         return self.S - prev_price
-    #     return 0.0
+    def _compute_momentum(self):
+        if self.curr_step > 0:
+            prev_price = self.prices[self.curr_sim, self.curr_step - 1]
+            return self.s - prev_price
+        return 0.0
 
     # def _compute_expected_future_payoff(self):
     #     remaining_prices = self.price_paths[self.curr_path, self.current_step:]
@@ -260,7 +260,7 @@ class Agent:
 
         return loss.item()
 
-    def train(self, nepisode, notebook):
+    def train(self, nepisode, notebook, verbose=True, ma_window=100):
         if notebook: from tqdm.notebook import tqdm
         else:        from tqdm import tqdm
 
@@ -296,6 +296,46 @@ class Agent:
             losses[episode] = loss_sum
             rewards[episode] = rew_sum
         
+
+            if verbose and episode % 50 == 0:
+                print(f"Episode {episode + 1}/{nepisode}: Total Reward = {rew_sum:.2f}, Loss = {loss_sum:.4f}, Eps = {self.eps:.4f}")
+
+        # Plot rewards with moving average
+        plt.figure(figsize=(12, 6))
+        plt.plot(rewards, label="Total Reward per Episode", alpha=0.4, color='blue')
+        if len(rewards) >= ma_window:
+            moving_avg_rewards = np.convolve(rewards, np.ones(ma_window)/ma_window, mode='valid')
+            plt.plot(
+                range(ma_window - 1, len(rewards)),
+                moving_avg_rewards,
+                label=f"Moving Avg Reward (window={ma_window})",
+                color='red'
+            )
+        plt.xlabel("Episode")
+        plt.ylabel("Total Reward")
+        plt.title("Training Progress: Rewards")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+        # Plot losses with moving average
+        plt.figure(figsize=(12, 6))
+        plt.plot(losses, label="Total Loss per Episode", alpha=0.4, color='blue')
+        if len(losses) >= ma_window:
+            moving_avg_losses = np.convolve(losses, np.ones(ma_window)/ma_window, mode='valid')
+            plt.plot(
+                range(ma_window - 1, len(losses)),
+                moving_avg_losses,
+                label=f"Moving Avg Loss (window={ma_window})",
+                color='red'
+            )
+        plt.xlabel("Episode")
+        plt.ylabel("Total Loss")
+        plt.title("Training Progress: Losses")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
         return losses, rewards
 
 if __name__ == '__main__':
