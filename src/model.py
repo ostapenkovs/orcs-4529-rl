@@ -33,17 +33,31 @@ class ReplayBuffer:
         return len(self.buffer)
 
 # --- Q Network ---
-class QNet(nn.Module):
+class DuelingQNet(nn.Module):
     def __init__(self, obssize, actsize, hidden_dim, depth):
-        super().__init__()
-        layers = [nn.Linear(obssize, hidden_dim), nn.ReLU()]
-        for _ in range(depth):
-            layers.extend([nn.Linear(hidden_dim, hidden_dim), nn.ReLU()])
-        layers.append(nn.Linear(hidden_dim, actsize))
-        self.model = nn.Sequential(*layers)
+        super(DuelingQNet, self).__init__()
+        self.feature_layer = nn.Sequential(
+            nn.Linear(obssize, hidden_dim),
+            nn.ReLU()
+        )
+        # Build the advantage and value streams
+        self.advantage_layer = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, actsize)
+        )
+        self.value_layer = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
 
     def forward(self, x):
-        return self.model(x)
+        features = self.feature_layer(x)
+        advantages = self.advantage_layer(features)
+        values = self.value_layer(features)
+        q_values = values + (advantages - advantages.mean())
+        return q_values
 
 # --- Environment ---
 class Environment:
@@ -101,7 +115,12 @@ class Environment:
         self.prev_ratio = ratio
         momentum = self._compute_momentum()
         expected_payoff = self._compute_expected_future_payoff()
-        return np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_payoff], dtype=np.float32)
+        obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_payoff], dtype=np.float32)
+        # Normalize the observation
+        obs_mean = np.mean(obs)
+        obs_std = np.std(obs) + 1e-5  # Add epsilon to prevent division by zero
+        normalized_obs = (obs - obs_mean) / obs_std
+        return normalized_obs
 
     def _compute_momentum(self):
         if self.current_step > 0:
@@ -120,9 +139,12 @@ class Environment:
 # --- Agent ---
 class Agent:
     def __init__(self, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, gamma, eps_start, eps_min, eps_decay):
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.principal = QNet(obssize, actsize, hidden_dim, depth).to(self.device)
-        self.target = QNet(obssize, actsize, hidden_dim, depth).to(self.device)
+        self.device = torch.device(
+            'cuda:0' if torch.cuda.is_available()  else \
+            'mps' if torch.backends.mps.is_available() else 'cpu'
+        )
+        self.principal = DuelingQNet(obssize, actsize, hidden_dim, depth).to(self.device)
+        self.target = DuelingQNet(obssize, actsize, hidden_dim, depth).to(self.device)
         self.optimizer = optim.Adam(self.principal.parameters(), lr=lr)
         self.buffer = ReplayBuffer(buffer_size, batch_size)
         self.gamma = gamma
@@ -158,16 +180,22 @@ class Agent:
         states, next_states = states.to(self.device), next_states.to(self.device)
         actions, rewards, dones = actions.to(self.device), rewards.to(self.device), dones.to(self.device)
 
+        # Current Q values
         q_values = self.principal(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+        
+        # Double DQN target calculation
         with torch.no_grad():
-            max_next_q_values = self.target(next_states).max(1)[0]
-            targets = rewards + self.gamma * max_next_q_values * (1 - dones)
+            # Action selection is done using the principal network
+            next_actions = self.principal(next_states).argmax(1).unsqueeze(1)
+            # Q-values are evaluated using the target network
+            next_q_values = self.target(next_states).gather(1, next_actions).squeeze(1)
+            targets = rewards + self.gamma * next_q_values * (1 - dones)
 
+        # Compute loss
         loss = nn.MSELoss()(q_values, targets)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        self.eps = max(self.eps * self.eps_decay, self.eps_min)
 
 if __name__ == '__main__':
     pass
