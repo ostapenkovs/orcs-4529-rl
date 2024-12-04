@@ -269,11 +269,13 @@ class Agent:
         totalstep = 0
         losses = np.zeros(nepisode)
         rewards = np.zeros(nepisode)
+        path_lengths = np.zeros(nepisode)
 
         for episode in tqdm(range(nepisode), desc='Episode', leave=True):
             obs = self.env.reset()
             done = False
             loss_sum = rew_sum = 0
+            steps = 0
 
             while not done:
                 action = self.act(state=obs)
@@ -292,11 +294,43 @@ class Agent:
                 totalstep += 1
                 obs = newobs
                 rew_sum += reward
+                steps += 1
             
             self.eps = max(self.eps * self.eps_decay, self.eps_min)
             
             losses[episode] = loss_sum
             rewards[episode] = rew_sum
+        
+
+            if verbose and episode % 100 == 0:
+                moving_avg_reward = np.mean(rewards[-ma_window:]) if len(rewards) >= ma_window else np.mean(rewards)
+                moving_avg_holding = np.mean(path_lengths[-ma_window:]) if len(path_lengths) >= ma_window else np.mean(path_lengths)
+                print(
+                    f"Episode {episode}/{nepisode}, "
+                    f"Total Reward: {rew_sum:.2f}, "
+                    f"Moving Avg Reward: {moving_avg_reward:.2f}, "
+                    f"Moving Avg Holding: {moving_avg_holding:.2f}, "
+                    f"Epsilon: {self.eps:.4f}"
+                )
+
+        if verbose:
+            # Plot rewards with moving average
+            plt.figure(figsize=(12, 6))
+            plt.plot(rewards, label="Total Reward per Episode", alpha=0.4, color='blue')
+            if len(rewards) >= ma_window:
+                moving_avg_rewards = np.convolve(rewards, np.ones(ma_window)/ma_window, mode='valid')
+                plt.plot(
+                    range(ma_window - 1, len(rewards)),
+                    moving_avg_rewards,
+                    label=f"Moving Avg Reward (window={ma_window})",
+                    color='red'
+                )
+            plt.xlabel("Episode")
+            plt.ylabel("Total Reward")
+            plt.title("Training Progress: Rewards")
+            plt.legend()
+            plt.grid(True)
+            plt.show()
         
             if verbose and episode % 50 == 0:
                 print(f"Episode {episode + 1}/{nepisode}: Total Reward = {rew_sum:.2f}, Loss = {loss_sum:.4f}, Eps = {self.eps:.4f}")
@@ -319,23 +353,23 @@ class Agent:
         plt.grid(True)
         plt.show()
 
-        # Plot losses with moving average
-        plt.figure(figsize=(12, 6))
-        plt.plot(losses, label="Total Loss per Episode", alpha=0.4, color='blue')
-        if len(losses) >= ma_window:
-            moving_avg_losses = np.convolve(losses, np.ones(ma_window)/ma_window, mode='valid')
-            plt.plot(
-                range(ma_window - 1, len(losses)),
-                moving_avg_losses,
-                label=f"Moving Avg Loss (window={ma_window})",
-                color='red'
-            )
-        plt.xlabel("Episode")
-        plt.ylabel("Total Loss")
-        plt.title("Training Progress: Losses")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+            # Plot losses with moving average
+            plt.figure(figsize=(12, 6))
+            plt.plot(losses, label="Total Loss per Episode", alpha=0.4, color='blue')
+            if len(losses) >= ma_window:
+                moving_avg_losses = np.convolve(losses, np.ones(ma_window)/ma_window, mode='valid')
+                plt.plot(
+                    range(ma_window - 1, len(losses)),
+                    moving_avg_losses,
+                    label=f"Moving Avg Loss (window={ma_window})",
+                    color='red'
+                )
+            plt.xlabel("Episode")
+            plt.ylabel("Total Loss")
+            plt.title("Training Progress: Losses")
+            plt.legend()
+            plt.grid(True)
+            plt.show()
 
         return losses, rewards
 
