@@ -128,7 +128,7 @@ class Environment:
         self.done = False
 
         self.s = self.prices[self.curr_sim, self.curr_step]
-        self.t = self.t2 - self.t1
+        self.t = self.t2 - self.t1 - self.dt
 
         # self.prev_ratio = self.S / self.K
         return self._get_obs()
