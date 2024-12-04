@@ -174,7 +174,7 @@ class Environment:
 
 # --- Agent ---
 class Agent:
-    def __init__(self, env, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, update_freq, gamma, eps, eps_min):
+    def __init__(self, env, obssize, actsize, hidden_dim, depth, lr, buffer_size, batch_size, update_freq, gamma, eps, eps_decay, eps_min):
         self.device = torch.device(
             'cuda:0' if torch.cuda.is_available()  else \
             'mps' if torch.backends.mps.is_available() else 'cpu'
@@ -193,6 +193,7 @@ class Agent:
         self.update_freq = update_freq
         self.gamma = gamma
         self.eps = eps
+        self.eps_decay = eps_decay
         self.eps_min = eps_min
 
         self.initialize_buffer()
