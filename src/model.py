@@ -339,10 +339,13 @@ class Agent:
 
         return losses, rewards
 
-    def eval(self, nepisode):
+    def eval(self, nepisode, notebook):
+        if notebook: from tqdm.notebook import tqdm
+        else:        from tqdm import tqdm
+
         rewards = np.zeros(nepisode)
 
-        for episode in range(nepisode):
+        for episode in tqdm(range(nepisode), desc='Episode', leave=True):
             obs = self.env.reset()
             done = False
             rew_sum = 0
