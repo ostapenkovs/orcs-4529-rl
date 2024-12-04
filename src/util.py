@@ -47,7 +47,6 @@ def generate_heston_paths(nsim, nstep, t1, t2, s_0, r, q, v_0, theta, rho, kappa
             s[i, j] = s_t
     return s
 
-
 def get_mc_price(prices, t1, t2, h, k, r):
     # Takes as input prices array from call to generate_xxx_paths()
     # t1, t2, r must be identical from aformentioned function call
@@ -61,9 +60,9 @@ def get_mc_price(prices, t1, t2, h, k, r):
 
     for t in range(nstep-2, -1, -1):
         values[:, t] = np.maximum(values[:, t], exp(-r*dt)*values[:, t+1])
+        # values[:, t] = np.maximum(values[:, t], exp(-r*dt)*np.mean(values[:, t+1]))
 
     return exp(-r*dt)*np.mean(values[:, 0])
-
 
 if __name__ == '__main__':
     pass
