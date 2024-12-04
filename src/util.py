@@ -66,29 +66,6 @@ def get_mc_price(prices, t1, t2, h, k, r):
     return exp(-r*dt)*np.mean(values[:, 0])
 
 
-def estimate_option_price(agent, env, n_paths=10000):
-    """
-    Estimate the option price using the trained agent.
-    """
-    total_rewards = []
-
-    for _ in range(n_paths):
-        state = env.reset()
-        total_reward = 0
-        done = False
-
-        while not done:
-            action = agent.act(state)
-            next_state, reward, done = env.step(action)
-            total_reward += reward
-            state = next_state
-
-        total_rewards.append(total_reward)
-
-    # Return the average reward as the estimated price
-    return np.mean(total_rewards)
-
-
 def plot_exercise_boundary(agent, env, n_paths=100, strike_price=150):
     """
     Visualize the early exercise boundary for a sample of paths.
