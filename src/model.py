@@ -259,7 +259,7 @@ class Agent:
         rewards = np.zeros(nepisode)
         path_lengths = np.zeros(nepisode)
 
-        for episode in tqdm(range(nepisode), desc='Episode', leave=False, position=1):
+        for episode in tqdm(range(nepisode), desc='Episode', leave=False, position=0):
             obs = self.env.reset()
             done = False
             loss_sum = rew_sum = step = 0
@@ -324,7 +324,7 @@ class Agent:
         rewards = np.zeros(nepisode)
         history = list()
 
-        for episode in tqdm(range(nepisode), desc='Episode', leave=False, position=1):
+        for episode in tqdm(range(nepisode), desc='Episode', leave=False, position=0):
             obs = self.env.reset()
             done = False
             rew_sum = 0
