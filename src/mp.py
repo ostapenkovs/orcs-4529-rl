@@ -12,32 +12,33 @@ import multiprocessing as mp
 sys.path.append(os.path.join(os.getcwd(), '..'))
 from src.model import Environment, Agent
 
-COLS = ('s_0', 'v', 't2', 'euro', 'amer', 'se', 'early_exercise_value')
-
-def read_data():
-    l = [[] for _ in range(len(COLS))]
-
-    with open('../resources/price_table.txt', 'r') as f:
-        for i, line in enumerate(f):
-            val = float(line.strip())
-            l[ i % len(COLS) ].append(val)
-    
-    l = [l[i] for i in [0, 1, 2, 4]]
-    return l
-
 def call(x, k):
     return np.maximum(x-k, 0)
 
 def put(x, k):
     return np.maximum(k-x, 0)
 
-def onesim(*args, h, nsim, nstep, t1, r, q, k):
-    s_0, v, t2, eval_price = args
-    path_kwargs = dict(v=v)
+def read_data(data_dir='../data/test_cases.csv'):
+    cols = ['s_0', 't2', 'q', 'r', 'h']
+    gbmcols = ['v']
+    hestoncols = ['v_0', 'theta', 'rho', 'kappa', 'sigma']
+
+    df = pd.read_csv(data_dir, usecols=range(0, 14))
+
+    df['h'] = df['h'].apply(lambda x: call if x == 'American_Call' else put)
+
+    df['path_kwargs'] = np.where(df['gbm'], df[gbmcols].to_dict('records'), df[hestoncols].to_dict('records'))
+
+    df.drop(gbmcols + hestoncols, axis=1, inplace=True)
+
+    return df[cols + ['path_kwargs', 'gbm']].values
+
+def onesim(*args, nsim, nstep, t1, k):
+    s_0, t2, q, r, h, path_kwargs, gbm = args
 
     env = Environment(
         nsim=nsim, nstep=nstep, t1=t1, t2=t2, s_0=s_0, r=r, q=q,
-        path_kwargs=path_kwargs, h=h, k=k, gbm=True
+        path_kwargs=path_kwargs, h=h, k=k, gbm=gbm
     )
 
     agent = Agent(
@@ -47,14 +48,13 @@ def onesim(*args, h, nsim, nstep, t1, r, q, k):
 
     losses, rewards, fig1 = agent.train(nepisode=3, notebook=False, verbose=False)
     mean_reward, fig2 = agent.eval(nepisode=3, notebook=False)
-    mse = (mean_reward - eval_price)**2
 
-    return losses, rewards, mean_reward, eval_price, mse, fig1, fig2
+    return losses, rewards, mean_reward, fig1, fig2
 
 def main():
     ### DATA ###
-    l = read_data()
-    print('Need to run:', len(l[0]), 'simulations.')
+    arr = read_data(data_dir='../data/test_cases.csv')
+    print('Need to run:', arr.shape[0], 'simulations.')
     print()
     ### DATA ###
 
@@ -66,8 +66,8 @@ def main():
     start = time.time()
     
     pool = mp.Pool(processes=num_workers)
-    myfunc = partial(onesim, h=put, nsim=10000, nstep=365, t1=0, r=0.04, q=0.00, k=100)
-    results = pool.starmap(myfunc, zip(*l))
+    myfunc = partial(onesim, nsim=10000, nstep=365, t1=0, k=100)
+    results = pool.starmap(myfunc, arr)
     pool.close()
     pool.join()
     
