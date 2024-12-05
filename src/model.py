@@ -126,7 +126,7 @@ class Environment:
         # normalized_obs = (obs - obs_mean) / obs_std
         # ratio, momentum, expected_payoff, self._intrinsic_value()
         obs = [
-            self.s, self.t
+            self.s / self.k, self.t
         ]
         return obs
 
@@ -247,20 +247,19 @@ class Agent:
 
         return loss.item()
 
-    def train(self, nepisode, notebook, verbose=True, verbose_freq=None, ma_window=None):
+    def train(self, nepisode, notebook, verbose=True, **kwargs):
         if notebook: from tqdm.notebook import tqdm
         else:        from tqdm import tqdm
 
-        if verbose:
-            if verbose_freq is None: verbose_freq = 100
-            if ma_window is None: ma_window = 100
+        verbose_freq = kwargs.get('verbose_freq', 100)
+        ma_window = kwargs.get('ma_window', 100)
 
         totalstep = 0
         losses = np.zeros(nepisode)
         rewards = np.zeros(nepisode)
         path_lengths = np.zeros(nepisode)
 
-        for episode in tqdm(range(nepisode), desc='Episode', leave=True):
+        for episode in tqdm(range(nepisode), desc='Episode', leave=False, position=1):
             obs = self.env.reset()
             done = False
             loss_sum = rew_sum = step = 0
@@ -325,7 +324,7 @@ class Agent:
         rewards = np.zeros(nepisode)
         history = list()
 
-        for episode in tqdm(range(nepisode), desc='Episode', leave=True):
+        for episode in tqdm(range(nepisode), desc='Episode', leave=False, position=1):
             obs = self.env.reset()
             done = False
             rew_sum = 0
