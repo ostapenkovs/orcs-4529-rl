@@ -65,52 +65,49 @@ def get_mc_price(prices, t1, t2, h, k, r):
 
     return exp(-r*dt)*np.mean(values[:, 0])
 
+# def plot_exercise_boundary(agent, env, n_paths=100, strike_price=150):
+#     """
+#     Visualize the early exercise boundary for a sample of paths.
+#     """
+#     plt.figure(figsize=(12, 8))
+#     exercise_points = []
 
-def plot_exercise_boundary(agent, env, n_paths=100, strike_price=150):
-    """
-    Visualize the early exercise boundary for a sample of paths.
-    """
-    plt.figure(figsize=(12, 8))
-    exercise_points = []
+#     for i in range(n_paths):
+#         state = env.reset()
+#         path = [state[0]]  # Asset prices
+#         times = [0]  # Time steps
+#         done = False
 
-    for i in range(n_paths):
-        state = env.reset()
-        path = [state[0]]  # Asset prices
-        times = [0]  # Time steps
-        done = False
+#         while not done:
+#             # Select an action using a greedy policy
+#             action = agent.act(state)
 
-        while not done:
-            # Select an action using a greedy policy
-            action = agent.act(state)
+#             if action == 1:  # Exercise
+#                 exercise_points.append((env.curr_step * env.dt, state[0]))  # Record exercise point
+#                 done = True
+#             else:
+#                 obs, _, done = env.step(0) 
+#                 state = obs  
+#                 path.append(state[0]) 
+#                 times.append(env.curr_step * env.dt)
 
-            if action == 1:  # Exercise
-                exercise_points.append((env.curr_step * env.dt, state[0]))  # Record exercise point
-                done = True
-            else:
-                obs, _, done = env.step(0) 
-                state = obs  
-                path.append(state[0]) 
-                times.append(env.curr_step * env.dt)
+#         # Plot the asset price path
+#         plt.plot(times, path, color='blue', alpha=0.3)
 
-        # Plot the asset price path
-        plt.plot(times, path, color='blue', alpha=0.3)
+#     # Plot exercise points if available
+#     if exercise_points:
+#         ex_times, ex_prices = zip(*exercise_points)
+#         plt.scatter(ex_times, ex_prices, color='red', label='Exercise Points')
 
-    # Plot exercise points if available
-    if exercise_points:
-        ex_times, ex_prices = zip(*exercise_points)
-        plt.scatter(ex_times, ex_prices, color='red', label='Exercise Points')
+#     # Add strike price for reference
+#     plt.axhline(y=strike_price, color='green', linestyle='--', label='Strike Price')
 
-    # Add strike price for reference
-    plt.axhline(y=strike_price, color='green', linestyle='--', label='Strike Price')
-
-    plt.title(f"Early Exercise Boundary Visualization ({n_paths} Paths)")
-    plt.xlabel("Time (Years)")
-    plt.ylabel("Asset Price")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-
+#     plt.title(f"Early Exercise Boundary Visualization ({n_paths} Paths)")
+#     plt.xlabel("Time (Years)")
+#     plt.ylabel("Asset Price")
+#     plt.legend()
+#     plt.grid(True)
+#     plt.show()
 
 if __name__ == '__main__':
     pass

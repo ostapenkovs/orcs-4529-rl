@@ -299,7 +299,7 @@ class Agent:
                     (episode, nepisode, rew_sum, moving_avg_reward, moving_avg_holding, self.eps)
                 )
 
-        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+        fig, axes = plt.subplots(1, 2, figsize=(14, 4))
         for ax, (arr, label) in zip(axes.flatten(), ((rewards, 'reward'), (losses, 'loss'))):
             ax.plot(arr, label=f'Total {label.upper()} per Episode', alpha=0.4, color='blue')
             
@@ -323,6 +323,7 @@ class Agent:
         else:        from tqdm import tqdm
 
         rewards = np.zeros(nepisode)
+        history = list()
 
         for episode in tqdm(range(nepisode), desc='Episode', leave=True):
             obs = self.env.reset()
@@ -332,12 +333,31 @@ class Agent:
             while not done:
                 action = self.act(state=obs)
                 newobs, reward, done = self.env.step(action=action)
+
+                ### FOR THE PLOT ###
+                if done:
+                    history.append( ((self.env.curr_step)*self.env.dt, self.env.s) )
+                ### FOR THE PLOT ###
+
                 obs = newobs
                 rew_sum += reward
 
             rewards[episode] = rew_sum
 
-        return rewards.mean()
+        fig, ax = plt.subplots(1, 1, figsize=(14, 4))
+
+        ax.scatter(*zip(*history), color='black', label='Exercise Boundary')
+        ax.axhline(y=self.env.k, color='red', linestyle='--', label='Strike Price')
+        
+        plt.xlabel('Time (Years)')
+        plt.ylabel('Asset Price')
+        plt.title(f'Early Exercise Boundary Visualization ({nepisode} Paths)')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.close()
+
+        return rewards.mean(), fig
 
 if __name__ == '__main__':
     pass
