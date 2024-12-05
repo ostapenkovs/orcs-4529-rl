@@ -16,13 +16,11 @@ from src.util import (
     get_mc_price
 )
 
-# --- Action ---
 class Action:
-    HOLD = 0
-    EXER = 1
+    HOLD        = 0
+    EXER        = 1
     NUM_ACTIONS = 2
 
-# --- Replay Buffer ---
 class ReplayBuffer:
     def __init__(self, buffer_size, batch_size):
         self.buffer = deque(maxlen=buffer_size)
@@ -38,7 +36,6 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
-# --- Q Network v1 ---
 class QNet(nn.Module):
     def __init__(self, obssize, actsize, hidden_dim, depth):
         super().__init__()
@@ -51,7 +48,6 @@ class QNet(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-# --- Q Network v2 ---
 # class DuelingQNet(nn.Module):
 #     def __init__(self, obssize, actsize, hidden_dim, depth):
 #         super().__init__()
@@ -78,7 +74,6 @@ class QNet(nn.Module):
 #         q_values = values + (advantages - advantages.mean())
 #         return q_values
 
-# --- Environment ---
 class Environment:
     def __init__(self, nsim, nstep, t1, t2, s_0, r, q, path_kwargs, h, k, gbm):
         self.rng = np.random.default_rng()
@@ -102,35 +97,36 @@ class Environment:
         self.h = h
         self.k = k
 
-        self.DIM_STATE = len(self.reset())
+        self.DIM_STATE = 2
 
-    def _compute_momentum(self):
-        if self.curr_step > 0:
-            prev_price = self.prices[self.curr_sim, self.curr_step - 1]
-            return self.s - prev_price
-        return 0.0
+    # def _compute_momentum(self):
+    #     if self.curr_step > 0:
+    #         prev_price = self.prices[self.curr_sim, self.curr_step - 1]
+    #         return self.s - prev_price
+    #     return 0.0
     
-    def _compute_expected_future_payoff(self):
-        remaining_prices = self.prices[self.curr_sim, self.curr_step:]
-        payoffs = self.h(remaining_prices, self.k)
-        return np.mean(payoffs) if len(payoffs) > 0 else 0.0
+    # def _compute_expected_future_payoff(self):
+    #     remaining_prices = self.prices[self.curr_sim, self.curr_step:]
+    #     payoffs = self.h(remaining_prices, self.k)
+    #     return np.mean(payoffs) if len(payoffs) > 0 else 0.0
 
-    def _intrinsic_value(self):
-        return self.h(self.s, self.k)
+    # def _intrinsic_value(self):
+    #     return self.h(self.s, self.k)
 
     def _get_obs(self):
-        ratio = self.s / self.k
+        # ratio = self.s / self.k
         # delta_ratio = ratio - self.prev_ratio
         # self.prev_ratio = ratio
-        momentum = self._compute_momentum()
-        expected_payoff = self._compute_expected_future_payoff()
+        # momentum = self._compute_momentum()
+        # expected_payoff = self._compute_expected_future_payoff()
         # obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_payoff], dtype=np.float32)
         # # Normalize the observation
         # obs_mean = np.mean(obs)
         # obs_std = np.std(obs) + 1e-5  # Add epsilon to prevent division by zero
         # normalized_obs = (obs - obs_mean) / obs_std
+        # ratio, momentum, expected_payoff, self._intrinsic_value()
         obs = [
-            self.s, self.t, ratio, momentum, expected_payoff, self._intrinsic_value()
+            self.s, self.t
         ]
         return obs
 
@@ -146,22 +142,13 @@ class Environment:
         self.s = self.prices[self.curr_sim, self.curr_step]
         self.t = self.t2 - self.t1 - self.dt
 
-        # self.prev_ratio = self.S / self.K
         return self._get_obs()
 
     def step(self, action):
         if self.done: raise RuntimeError('Step called on a finished episode in step().')
 
-        # intrinsic_value = self._intrinsic_value(self.S)
-        
-        # reward = disc_factor * intrinsic_value if action == 1 else 0
-
-        if action == Action.EXER or self.curr_step == self.nstep - 1:
-            disc = exp(-self.r * (self.curr_step + 1) * self.dt)
-
-            payoff = self._intrinsic_value()
-            
-            reward = disc * payoff
+        if action == Action.EXER or self.curr_step == self.nstep - 1:            
+            reward = exp(-self.r * (self.curr_step + 1) * self.dt) * self.h(self.s, self.k)
             
             self.done = True
         
@@ -176,7 +163,6 @@ class Environment:
 
         return self._get_obs(), reward, self.done
 
-# --- Agent ---
 class Agent:
     def __init__(self, env, hidden_dim, depth, lr, buffer_size, batch_size, buffer_interval, model_interval, gamma, eps, eps_decay, eps_min):
         self.device = torch.device(
@@ -225,12 +211,9 @@ class Agent:
             
             self.principal.eval()
             with torch.no_grad():
-                action = torch.argmax(self.principal(state_tensor)).item()
+                return torch.argmax(self.principal(state_tensor)).item()
         
-        else:
-            action = self.env.random_action()
-        
-        return action
+        return self.env.random_action()
 
     def learn(self):
         states, actions, rewards, next_states, dones = self.buffer.sample()
@@ -264,9 +247,13 @@ class Agent:
 
         return loss.item()
 
-    def train(self, nepisode, notebook, verbose=True, ma_window=100):
+    def train(self, nepisode, notebook, verbose=True, verbose_freq=None, ma_window=None):
         if notebook: from tqdm.notebook import tqdm
         else:        from tqdm import tqdm
+
+        if verbose:
+            if verbose_freq is None: verbose_freq = 100
+            if ma_window is None: ma_window = 100
 
         totalstep = 0
         losses = np.zeros(nepisode)
@@ -276,8 +263,7 @@ class Agent:
         for episode in tqdm(range(nepisode), desc='Episode', leave=True):
             obs = self.env.reset()
             done = False
-            loss_sum = rew_sum = 0
-            steps = 0
+            loss_sum = rew_sum = step = 0
 
             while not done:
                 action = self.act(state=obs)
@@ -296,65 +282,41 @@ class Agent:
                 totalstep += 1
                 obs = newobs
                 rew_sum += reward
-                steps += 1
+                step += 1
             
             self.eps = max(self.eps * self.eps_decay, self.eps_min)
             
             losses[episode] = loss_sum
             rewards[episode] = rew_sum
-            path_lengths[episode] = steps
+            path_lengths[episode] = step
         
-
-            if verbose and episode % 100 == 0:
+            if verbose and episode % verbose_freq == 0:
                 start = max(0, episode - ma_window + 1)
                 moving_avg_reward = np.mean(rewards[start:episode + 1])
                 moving_avg_holding = np.mean(path_lengths[start:episode + 1])
                 print(
-                    f"Episode {episode}/{nepisode}, "
-                    f"Total Reward: {rew_sum:.2f}, "
-                    f"Moving Avg Reward: {moving_avg_reward:.2f}, "
-                    f"Moving Avg Holding: {moving_avg_holding:.2f}, "
-                    f"Epsilon: {self.eps:.4f}"
+                    'Episode %s/%s, Total Reward: %.2f, Moving Avg Reward: %.2f, Moving Avg Holding: %.2f, Epsilon: %.4f' % 
+                    (episode, nepisode, rew_sum, moving_avg_reward, moving_avg_holding, self.eps)
                 )
 
-        if verbose:
-            # Plot rewards with moving average
-            plt.figure(figsize=(12, 6))
-            plt.plot(rewards, label="Total Reward per Episode", alpha=0.4, color='blue')
-            if len(rewards) >= ma_window:
-                moving_avg_rewards = np.convolve(rewards, np.ones(ma_window)/ma_window, mode='valid')
-                plt.plot(
-                    range(ma_window - 1, len(rewards)),
-                    moving_avg_rewards,
-                    label=f"Moving Avg Reward (window={ma_window})",
-                    color='red'
-                )
-            plt.xlabel("Episode")
-            plt.ylabel("Total Reward")
-            plt.title("Training Progress: Rewards")
-            plt.legend()
-            plt.grid(True)
-            plt.show()
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+        for ax, (arr, label) in zip(axes.flatten(), ((rewards, 'reward'), (losses, 'loss'))):
+            ax.plot(arr, label=f'Total {label.upper()} per Episode', alpha=0.4, color='blue')
+            
+            if len(arr) >= ma_window:
+                moving_avg = np.convolve(arr, np.ones(ma_window)/ma_window, mode='valid')
+                ax.plot(range(ma_window - 1, len(arr)), moving_avg, label=f'Moving Avg {label.upper()} (window={ma_window})', color='red')
+            
+            ax.set_xlabel('Episode')
+            ax.set_ylabel(f'Total {label.upper()}')
+            ax.set_title(f'Training Progress: {label.upper()}')
+            ax.legend()
+            ax.grid(True)
+        
+        plt.tight_layout()
+        plt.close()
 
-            # Plot losses with moving average
-            plt.figure(figsize=(12, 6))
-            plt.plot(losses, label="Total Loss per Episode", alpha=0.4, color='blue')
-            if len(losses) >= ma_window:
-                moving_avg_losses = np.convolve(losses, np.ones(ma_window)/ma_window, mode='valid')
-                plt.plot(
-                    range(ma_window - 1, len(losses)),
-                    moving_avg_losses,
-                    label=f"Moving Avg Loss (window={ma_window})",
-                    color='red'
-                )
-            plt.xlabel("Episode")
-            plt.ylabel("Total Loss")
-            plt.title("Training Progress: Losses")
-            plt.legend()
-            plt.grid(True)
-            plt.show()
-
-        return losses, rewards
+        return losses, rewards, fig
 
     def eval(self, nepisode, notebook):
         if notebook: from tqdm.notebook import tqdm
