@@ -43,7 +43,7 @@ def onesim(*args, nsim, nstep, t1, k):
 
     agent = Agent(
         env=env, hidden_dim=128, depth=3, lr=0.001, buffer_size=1024, batch_size=64,
-        buffer_interval=8, model_interval=32, gamma=0.99, eps=0.99, eps_decay=0.995, eps_min=0.01
+        buffer_interval=8, model_interval=32, gamma=0.995, eps=0.99, eps_decay=0.995, eps_min=0.01
     )
 
     losses, rewards, fig1 = agent.train(nepisode=10000, notebook=False, verbose=False)

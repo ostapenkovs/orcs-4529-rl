@@ -97,7 +97,7 @@ class Environment:
         self.h = h
         self.k = k
 
-        self.DIM_STATE = 3
+        self.DIM_STATE = 4
 
     # def _compute_momentum(self):
     #     if self.curr_step > 0:
@@ -105,20 +105,28 @@ class Environment:
     #         return self.s - prev_price
     #     return 0.0
     
-    def _compute_expected_future_payoff(self):
-        remaining_prices = self.prices[self.curr_sim, self.curr_step:]
-        payoffs = self.h(remaining_prices, self.k)
-        return np.mean(payoffs) if len(payoffs) > 0 else 0.0
+    # def _compute_expected_future_payoff(self):
+    #     remaining_prices = self.prices[self.curr_sim, self.curr_step:]
+    #     payoffs = self.h(remaining_prices, self.k)
+    #     return np.mean(payoffs) if len(payoffs) > 0 else 0.0
 
-    # def _intrinsic_value(self):
-    #     return self.h(self.s, self.k)
+    def _compute_continuation_value(self):
+        remaining_prices = self.prices[self.curr_sim, self.curr_step:]
+        discounted_payoffs = [
+            exp(-self.r * t * self.dt) * self.h(price, self.k) for t, price in enumerate(remaining_prices)
+        ]
+        return np.mean(discounted_payoffs)
+    
+    def _intrinsic_value(self):
+        return self.h(self.s, self.k)
 
     def _get_obs(self):
         # ratio = self.s / self.k
         # delta_ratio = ratio - self.prev_ratio
         # self.prev_ratio = ratio
         # momentum = self._compute_momentum()
-        expected_payoff = self._compute_expected_future_payoff()
+        # expected_payoff = self._compute_expected_future_payoff()
+        continuation_value = self._compute_continuation_value()
         # obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_payoff], dtype=np.float32)
         # # Normalize the observation
         # obs_mean = np.mean(obs)
@@ -126,7 +134,7 @@ class Environment:
         # normalized_obs = (obs - obs_mean) / obs_std
         # ratio, momentum, expected_payoff, self._intrinsic_value()
         obs = [
-            self.s / self.k, self.t, expected_payoff
+            self.s / self.k, self.t / (self.t2 - self.t1), self._intrinsic_value(),  continuation_value
         ]
         return obs
 
