@@ -46,8 +46,8 @@ def onesim(*args, nsim, nstep, t1, k):
         buffer_interval=8, model_interval=32, gamma=0.99, eps=0.99, eps_decay=0.995, eps_min=0.01
     )
 
-    losses, rewards, fig1 = agent.train(nepisode=12000, notebook=False, verbose=False)
-    mean_reward, fig2 = agent.eval(nepisode=500, notebook=False)
+    losses, rewards, fig1 = agent.train(nepisode=10000, notebook=False, verbose=False)
+    mean_reward, fig2 = agent.eval(nepisode=1000, notebook=False)
 
     return losses, rewards, mean_reward, fig1, fig2
 

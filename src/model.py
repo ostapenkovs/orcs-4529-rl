@@ -97,7 +97,7 @@ class Environment:
         self.h = h
         self.k = k
 
-        self.DIM_STATE = 2
+        self.DIM_STATE = 3
 
     # def _compute_momentum(self):
     #     if self.curr_step > 0:
@@ -105,10 +105,10 @@ class Environment:
     #         return self.s - prev_price
     #     return 0.0
     
-    # def _compute_expected_future_payoff(self):
-    #     remaining_prices = self.prices[self.curr_sim, self.curr_step:]
-    #     payoffs = self.h(remaining_prices, self.k)
-    #     return np.mean(payoffs) if len(payoffs) > 0 else 0.0
+    def _compute_expected_future_payoff(self):
+        remaining_prices = self.prices[self.curr_sim, self.curr_step:]
+        payoffs = self.h(remaining_prices, self.k)
+        return np.mean(payoffs) if len(payoffs) > 0 else 0.0
 
     # def _intrinsic_value(self):
     #     return self.h(self.s, self.k)
@@ -118,7 +118,7 @@ class Environment:
         # delta_ratio = ratio - self.prev_ratio
         # self.prev_ratio = ratio
         # momentum = self._compute_momentum()
-        # expected_payoff = self._compute_expected_future_payoff()
+        expected_payoff = self._compute_expected_future_payoff()
         # obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_payoff], dtype=np.float32)
         # # Normalize the observation
         # obs_mean = np.mean(obs)
@@ -126,7 +126,7 @@ class Environment:
         # normalized_obs = (obs - obs_mean) / obs_std
         # ratio, momentum, expected_payoff, self._intrinsic_value()
         obs = [
-            self.s / self.k, self.t
+            self.s / self.k, self.t, expected_payoff
         ]
         return obs
 
