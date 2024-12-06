@@ -94,7 +94,7 @@ def black_scholes(t1, t2, s, r, q, v, k, call):
 
     if call:
         return term1*norm.cdf(d1) - term2*norm.cdf(d2)
-    return term2*norm.cdf(-d2) - term1.norm.cdf(-d1)
+    return term2*norm.cdf(-d2) - term1*norm.cdf(-d1)
 
 def show_figure(fig):
     dummy = plt.figure()
