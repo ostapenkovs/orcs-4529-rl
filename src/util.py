@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import log, exp, sqrt
 import matplotlib.pyplot as plt
+from scipy.stats import norm
 
 def generate_gbm_paths(nsim, nstep, t1, t2, s_0, r, q, v, **kwargs):
     # dS_t = mu S_t dt + v S_t dW_t
@@ -108,6 +109,33 @@ def get_mc_price(prices, t1, t2, h, k, r):
 #     plt.legend()
 #     plt.grid(True)
 #     plt.show()
+
+def black_scholes(S, K, T, r, sigma, option_type="call"):
+
+    if T <= 0:
+        # Option has expired
+        if option_type == "call":
+            return max(S - K, 0)
+        elif option_type == "put":
+            return max(K - S, 0)
+        else:
+            raise ValueError("Invalid option_type. Use 'call' or 'put'.")
+
+    # Calculate d1 and d2
+    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
+    d2 = d1 - sigma * np.sqrt(T)
+
+    if option_type == "call":
+        # Call option price
+        price = S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
+    elif option_type == "put":
+        # Put option price
+        price = K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
+    else:
+        raise ValueError("Invalid option_type. Use 'call' or 'put'.")
+
+    return price
+
 
 if __name__ == '__main__':
     pass
