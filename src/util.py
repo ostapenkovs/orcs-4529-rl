@@ -49,22 +49,41 @@ def generate_heston_paths(nsim, nstep, t1, t2, s_0, r, q, v_0, theta, rho, kappa
             s[i, j] = s_t
     return s
 
-def get_mc_price(prices, t1, t2, h, k, r):
+def get_mc_price(prices, t1, t2, h, r, order = 3):
     # Takes as input prices array from call to generate_xxx_paths()
     # t1, t2, r must be identical from aformentioned function call
     # h := payoff function (Callable)
     # k := strike price (int)
-    nstep = prices.shape[1]
-    dt = (t2 - t1) / nstep
+    nsim, nstep = prices.shape
+    dt = (t2 - t1) / nstep  # Time step size
 
-    values = np.zeros_like(prices)
-    values[:, -1] = h(prices[:, -1], k)
+    # Option value at maturity (final payoff)
+    values = h(prices[:, -1])
 
-    for t in range(nstep-2, -1, -1):
-        values[:, t] = np.maximum(values[:, t], exp(-r*dt)*values[:, t+1])
-        # values[:, t] = np.maximum(values[:, t], exp(-r*dt)*np.mean(values[:, t+1]))
+    # Work backward through the steps
+    for t in range(nstep - 2, -1, -1):
+        # Identify paths that are in the money
+        itm = h(prices[:, t]) > 0
+        if not np.any(itm):
+            continue  # No paths in the money, skip this step
 
-    return exp(-r*dt)*np.mean(values[:, 0])
+        # Get in-the-money prices and discounted future values
+        x = prices[itm, t]
+        y = np.exp(-r * dt) * values[itm]
+
+        # Fit polynomial regression to continuation values
+        X = np.vander(x, order + 1)
+        coeff = np.linalg.lstsq(X, y, rcond=None)[0]
+
+        # Estimate continuation values for all paths
+        continuation_values = np.dot(np.vander(prices[:, t], order + 1), coeff)
+
+        # Update option values with early exercise logic
+        exercise_values = h(prices[:, t])
+        values = np.where(itm, np.maximum(exercise_values, continuation_values), values)
+
+    # Discount to present value and return the mean
+    return np.exp(-r * t1) * np.mean(values)
 
 # def plot_exercise_boundary(agent, env, n_paths=100, strike_price=150):
 #     """
