@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 from numpy import log, exp, sqrt
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 import torch
@@ -15,6 +16,8 @@ from src.util import (
     generate_heston_paths,
     get_mc_price
 )
+
+mpl.rcParams['figure.dpi'] = 100
 
 class Action:
     HOLD        = 0
