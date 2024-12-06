@@ -66,6 +66,17 @@ def get_mc_price(prices, t1, t2, h, k, r):
 
     return exp(-r*dt)*np.mean(values[:, 0])
 
+def black_scholes(t1, t2, s, r, q, v, k, call):
+    d1 = (log(s/k) + (t2-t1)*(r-q+v*v/2)) / (v*sqrt(t2-t1))
+    d2 = d1 - v*sqrt(t2-t1)
+
+    term1 = s*exp(-q*(t2-t1))
+    term2 = k*exp(-r*(t2-t1))
+
+    if call:
+        return term1*norm.cdf(d1) - term2*norm.cdf(d2)
+    return term2*norm.cdf(-d2) - term1.norm.cdf(-d1)
+
 # def plot_exercise_boundary(agent, env, n_paths=100, strike_price=150):
 #     """
 #     Visualize the early exercise boundary for a sample of paths.
@@ -109,33 +120,6 @@ def get_mc_price(prices, t1, t2, h, k, r):
 #     plt.legend()
 #     plt.grid(True)
 #     plt.show()
-
-def black_scholes(S, K, T, r, sigma, option_type="call"):
-
-    if T <= 0:
-        # Option has expired
-        if option_type == "call":
-            return max(S - K, 0)
-        elif option_type == "put":
-            return max(K - S, 0)
-        else:
-            raise ValueError("Invalid option_type. Use 'call' or 'put'.")
-
-    # Calculate d1 and d2
-    d1 = (np.log(S / K) + (r + 0.5 * sigma**2) * T) / (sigma * np.sqrt(T))
-    d2 = d1 - sigma * np.sqrt(T)
-
-    if option_type == "call":
-        # Call option price
-        price = S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
-    elif option_type == "put":
-        # Put option price
-        price = K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
-    else:
-        raise ValueError("Invalid option_type. Use 'call' or 'put'.")
-
-    return price
-
 
 if __name__ == '__main__':
     pass
