@@ -77,6 +77,12 @@ def black_scholes(t1, t2, s, r, q, v, k, call):
         return term1*norm.cdf(d1) - term2*norm.cdf(d2)
     return term2*norm.cdf(-d2) - term1.norm.cdf(-d1)
 
+def show_figure(fig):
+    dummy = plt.figure()
+    new_manager = dummy.canvas.manager
+    new_manager.canvas.figure = fig
+    fig.set_canvas(new_manager.canvas)
+
 # def plot_exercise_boundary(agent, env, n_paths=100, strike_price=150):
 #     """
 #     Visualize the early exercise boundary for a sample of paths.
