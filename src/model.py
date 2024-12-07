@@ -119,9 +119,6 @@ class Environment:
             exp(-self.r * t * self.dt) * self.h(price, self.k) for t, price in enumerate(remaining_prices)
         ]
         return np.mean(discounted_payoffs)
-    
-    def _intrinsic_value(self):
-        return self.h(self.s, self.k)
 
     def _get_obs(self):
         # ratio = self.s / self.k
@@ -137,7 +134,7 @@ class Environment:
         # normalized_obs = (obs - obs_mean) / obs_std
         # ratio, momentum, expected_payoff, self._intrinsic_value()
         obs = [
-            self.s / self.k, self.t / (self.t2 - self.t1), self._intrinsic_value(),  continuation_value
+            self.s / self.k, self.t / (self.t2 - self.t1), self.h(self.s, self.k),  continuation_value
         ]
         return obs
 
