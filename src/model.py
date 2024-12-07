@@ -132,8 +132,13 @@ class Environment:
         # obs_std = np.std(obs) + 1e-5  # Add epsilon to prevent division by zero
         # normalized_obs = (obs - obs_mean) / obs_std
         # ratio, momentum, expected_payoff, self._intrinsic_value()
+        next_val = log( self.prices[self.curr_sim, min(self.curr_step+1, self.nstep-1)] / self.k )
+
         obs = [
-            log( self.s / self.k ), self.t / (self.t2 - self.t1), self.h(self.s, self.k)#,  continuation_value
+            log( self.s / self.k ), 
+            self.t / (self.t2 - self.t1), 
+            self.h(self.s, self.k),
+            next_val
         ]
         return obs
 
@@ -331,35 +336,33 @@ class Agent:
         rewards = np.zeros(nepisode)
         history = list()
 
+        fig, ax = plt.subplots(1, 1, figsize=(14, 4))
+
         for episode in tqdm(range(nepisode), desc='Episode', leave=False, position=0):
             obs = self.env.reset()
             done = False
             rew_sum = 0
 
+            path = [self.env.s]
+            time = [self.env.t1]
+
             while not done:
                 action = self.act(state=obs)
                 newobs, reward, done = self.env.step(action=action)
-
-                ### FOR THE PLOT ###
-                if done:
-                    history.append( ((self.env.curr_step)*self.env.dt, self.env.s, action) )
-                ### FOR THE PLOT ###
-
+                step = (self.env.curr_step)*self.env.dt
                 obs = newobs
                 rew_sum += reward
 
+                path.append(self.env.s)
+                time.append(step)
+                if done: history.append( (step, self.env.s, action) )
+
             rewards[episode] = rew_sum
+
+            ax.plot(time, path, color='blue', alpha=0.3)
 
         steps, prices, actions = [np.array(x, dtype=np.float32) for x in zip(*history)]
         mask = (actions == Action.EXER)
-
-        fig, ax = plt.subplots(1, 1, figsize=(14, 4))
-
-        ax.plot(
-            np.linspace(self.env.t1, self.env.t2, self.env.nstep), 
-            self.env.prices[:self.env.curr_sim+1].T, 
-            color='blue', alpha=0.3
-        )
 
         ax.scatter(steps[mask], prices[mask], color='red', label='Early Exercise')
         ax.scatter(steps[~mask], prices[~mask], color='green', label='Held to Maturity')
