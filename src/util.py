@@ -3,6 +3,12 @@ from numpy import log, exp, sqrt
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 
+def call(x, k):
+    return np.maximum(x-k, 0)
+
+def put(x, k):
+    return np.maximum(k-x, 0)
+
 def generate_gbm_paths(nsim, nstep, t1, t2, s_0, r, q, v, **kwargs):
     # dS_t = mu S_t dt + v S_t dW_t
     rng = kwargs.get('rng', np.random.default_rng())

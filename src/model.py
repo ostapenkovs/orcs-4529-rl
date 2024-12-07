@@ -13,8 +13,7 @@ import torch.optim as optim
 
 from src.util import (
     generate_gbm_paths,
-    generate_heston_paths,
-    get_mc_price
+    generate_heston_paths
 )
 
 mpl.rcParams['figure.dpi'] = 100

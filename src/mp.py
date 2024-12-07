@@ -14,11 +14,10 @@ import multiprocessing as mp
 sys.path.append(os.path.join(os.getcwd(), '..'))
 from src.model import Environment, Agent
 
-def call(x, k):
-    return np.maximum(x-k, 0)
-
-def put(x, k):
-    return np.maximum(k-x, 0)
+from src.util import (
+    call,
+    put
+)
 
 def read_data(data_dir='../data/test_cases.csv'):
     cols = ['s_0', 't2', 'q', 'r', 'h']
@@ -45,7 +44,7 @@ def onesim(*args, nsim, nstep, t1, k):
 
     agent = Agent(
         env=env, hidden_dim=128, depth=3, lr=0.001, buffer_size=2048, batch_size=128,
-        buffer_interval=8, model_interval=32, gamma=1.0, eps=0.99, eps_decay=0.995, eps_min=0.01
+        buffer_interval=8, model_interval=32, gamma=0.995, eps=0.99, eps_decay=0.995, eps_min=0.01
     )
 
     losses, rewards, fig1 = agent.train(nepisode=3000, notebook=False, verbose=False)
@@ -56,7 +55,7 @@ def onesim(*args, nsim, nstep, t1, k):
 def main():
     ### DATA ###
     arr = read_data(data_dir='../data/test_cases.csv')
-    arr = arr[:10]
+    arr = arr[:30]
     print('Need to run:', arr.shape[0], 'simulations.')
     print()
     ### DATA ###
