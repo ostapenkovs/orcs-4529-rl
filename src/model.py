@@ -355,6 +355,12 @@ class Agent:
 
         fig, ax = plt.subplots(1, 1, figsize=(14, 4))
 
+        ax.plot(
+            np.linspace(self.env.t1, self.env.t2, self.env.nstep), 
+            self.env.prices[:self.env.curr_sim+1].T, 
+            color='blue', alpha=0.3
+        )
+
         ax.scatter(steps[mask], prices[mask], color='red', label='Early Exercise')
         ax.scatter(steps[~mask], prices[~mask], color='green', label='Held to Maturity')
         
