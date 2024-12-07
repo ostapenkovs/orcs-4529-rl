@@ -44,18 +44,19 @@ def onesim(*args, nsim, nstep, t1, k):
     )
 
     agent = Agent(
-        env=env, hidden_dim=128, depth=3, lr=0.001, buffer_size=1024, batch_size=64,
-        buffer_interval=8, model_interval=32, gamma=0.995, eps=0.99, eps_decay=0.995, eps_min=0.01
+        env=env, hidden_dim=128, depth=3, lr=0.001, buffer_size=2048, batch_size=128,
+        buffer_interval=8, model_interval=32, gamma=1.0, eps=0.99, eps_decay=0.995, eps_min=0.01
     )
 
-    losses, rewards, fig1 = agent.train(nepisode=10000, notebook=False, verbose=False)
-    mean_reward, fig2 = agent.eval(nepisode=1000, notebook=False)
+    losses, rewards, fig1 = agent.train(nepisode=3000, notebook=False, verbose=False)
+    mean_reward, fig2 = agent.eval(nepisode=500, notebook=False)
 
     return mean_reward, fig1, fig2
 
 def main():
     ### DATA ###
     arr = read_data(data_dir='../data/test_cases.csv')
+    arr = arr[:10]
     print('Need to run:', arr.shape[0], 'simulations.')
     print()
     ### DATA ###
@@ -68,7 +69,7 @@ def main():
     start = time.time()
     
     pool = mp.Pool(processes=num_workers)
-    myfunc = partial(onesim, nsim=10000, nstep=52, t1=0, k=100)
+    myfunc = partial(onesim, nsim=10000, nstep=365, t1=0, k=100)
     results = pool.starmap(myfunc, arr)
     pool.close()
     pool.join()
