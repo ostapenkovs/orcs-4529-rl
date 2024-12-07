@@ -354,11 +354,11 @@ class Agent:
         mask = (actions == Action.EXER)
 
         fig, ax = plt.subplots(1, 1, figsize=(14, 4))
-        
+
         ax.scatter(steps[mask], prices[mask], color='red', label='Early Exercise')
         ax.scatter(steps[~mask], prices[~mask], color='green', label='Held to Maturity')
         
-        ax.axhline(y=self.env.k, color='red', linestyle='--', label='Strike Price')
+        ax.axhline(y=self.env.k, color='black', linestyle='--', label='Strike Price')
         
         plt.xlabel('Time (Years)')
         plt.ylabel('Asset Price')
