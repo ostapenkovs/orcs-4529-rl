@@ -48,8 +48,8 @@ def onesim(*args, nsim, nstep, t1, k):
         buffer_interval=8, model_interval=32, gamma=0.995, eps=0.99, eps_decay=0.995, eps_min=0.01
     )
 
-    losses, rewards, fig1 = agent.train(nepisode=3, notebook=False, verbose=False)
-    mean_reward, fig2 = agent.eval(nepisode=3, notebook=False)
+    losses, rewards, fig1 = agent.train(nepisode=10000, notebook=False, verbose=False)
+    mean_reward, fig2 = agent.eval(nepisode=1000, notebook=False)
 
     plt.close(fig1)
     plt.close(fig2)
@@ -71,7 +71,7 @@ def main():
     start = time.time()
     
     pool = mp.Pool(processes=num_workers)
-    myfunc = partial(onesim, nsim=10000, nstep=12, t1=0, k=100)
+    myfunc = partial(onesim, nsim=10000, nstep=52, t1=0, k=100)
     results = pool.starmap(myfunc, arr)
     pool.close()
     pool.join()
