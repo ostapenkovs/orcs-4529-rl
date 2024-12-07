@@ -1,7 +1,7 @@
 {
-    "nsim": 10000,
-    "nepisode_train": 5000,
-    "nepisode_eval": 1000,
+    "nsim": 500,
+    "nepisode_train": 500,
+    "nepisode_eval": 100,
     "nstep": 365,
     "t1": 0,
     "k": 100
