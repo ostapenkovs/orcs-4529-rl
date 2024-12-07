@@ -51,10 +51,7 @@ def onesim(*args, nsim, nstep, t1, k):
     losses, rewards, fig1 = agent.train(nepisode=10000, notebook=False, verbose=False)
     mean_reward, fig2 = agent.eval(nepisode=1000, notebook=False)
 
-    plt.close(fig1)
-    plt.close(fig2)
-
-    return losses, rewards, mean_reward, fig1, fig2
+    return mean_reward, fig1, fig2
 
 def main():
     ### DATA ###
