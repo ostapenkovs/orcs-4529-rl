@@ -99,7 +99,7 @@ class Environment:
         self.h = h
         self.k = k
 
-        self.DIM_STATE = 3
+        self.DIM_STATE = 4
 
     # def _compute_momentum(self):
     #     if self.curr_step > 0:
