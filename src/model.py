@@ -342,7 +342,7 @@ class Agent:
 
                 ### FOR THE PLOT ###
                 if done:
-                    history.append( ((self.env.curr_step)*self.env.dt, self.env.s) )
+                    history.append( ((self.env.curr_step)*self.env.dt, self.env.s, action) )
                 ### FOR THE PLOT ###
 
                 obs = newobs
@@ -350,9 +350,14 @@ class Agent:
 
             rewards[episode] = rew_sum
 
-        fig, ax = plt.subplots(1, 1, figsize=(14, 4))
+        steps, prices, actions = [np.array(x, dtype=np.float32) for x in zip(*history)]
+        mask = (actions == Action.EXER)
 
-        ax.scatter(*zip(*history), color='black', label='Exercise Boundary')
+        fig, ax = plt.subplots(1, 1, figsize=(14, 4))
+        
+        ax.scatter(steps[mask], prices[mask], color='red', label='Early Exercise')
+        ax.scatter(steps[~mask], prices[~mask], color='green', label='Held to Maturity')
+        
         ax.axhline(y=self.env.k, color='red', linestyle='--', label='Strike Price')
         
         plt.xlabel('Time (Years)')
