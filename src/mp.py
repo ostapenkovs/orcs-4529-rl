@@ -55,7 +55,7 @@ def onesim(*args, nsim, nstep, t1, k, nepisode_train, nepisode_eval):
 
 def main():
     ### DATA ###
-    with open(f'..data/params.json', 'r') as f:
+    with open(f'../data/params.json', 'r') as f:
         params = json.load(f)
     
     nsim = params.get('nsim', 10000)
