@@ -66,7 +66,7 @@ def main():
     k = params.get('k', 100)
 
     arr = read_data(data_dir='../data/test_cases.csv')
-    arr = arr[:3] # TODO: remove!
+    arr = arr[:30] # TODO: remove!
     print('Need to run:', arr.shape[0], 'simulations.')
     print()
     ### DATA ###

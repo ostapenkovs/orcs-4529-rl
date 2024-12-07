@@ -9,3 +9,5 @@ temp.*
 .env
 
 .DS_Store
+
+*.pkl
