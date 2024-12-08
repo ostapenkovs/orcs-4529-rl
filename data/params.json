@@ -1,5 +1,5 @@
 {
-    "nsim": 10000,
+    "nsim": 3001,
     "nepisode_train": 3000,
     "nepisode_eval": 1000,
     "nstep": 365,

@@ -99,7 +99,7 @@ class Environment:
         self.h = h
         self.k = k
 
-        self.DIM_STATE = 4
+        self.DIM_STATE = len(self.reset())
 
     # def _compute_momentum(self):
     #     if self.curr_step > 0:
@@ -112,12 +112,14 @@ class Environment:
     #     payoffs = self.h(remaining_prices, self.k)
     #     return np.mean(payoffs) if len(payoffs) > 0 else 0.0
 
-    # def _compute_continuation_value(self):
-    #     remaining_prices = self.prices[self.curr_sim, self.curr_step:]
-    #     discounted_payoffs = [
-    #         exp(-self.r * t * self.dt) * self.h(price, self.k) for t, price in enumerate(remaining_prices)
-    #     ]
-    #     return np.mean(discounted_payoffs)
+    def _compute_continuation_value(self):
+        remaining_prices = self.prices[self.curr_sim, self.curr_step+1:]
+        
+        discounted_payoffs = [
+            exp(-self.r * (t+1) * self.dt) * self.h(price, self.k) for t, price in enumerate(remaining_prices)
+        ]
+        
+        return np.mean(discounted_payoffs) if discounted_payoffs else 0
 
     def _get_obs(self):
         # ratio = self.s / self.k
@@ -132,13 +134,21 @@ class Environment:
         # obs_std = np.std(obs) + 1e-5  # Add epsilon to prevent division by zero
         # normalized_obs = (obs - obs_mean) / obs_std
         # ratio, momentum, expected_payoff, self._intrinsic_value()
-        next_val = log( self.prices[self.curr_sim, min(self.curr_step+1, self.nstep-1)] / self.k )
+        # next_val = log(  / self.k )
+
+        # next_price = self.prices[:, min(self.curr_step+1, self.nstep-1)].mean()
 
         obs = [
-            log( self.s / self.k ), 
-            self.t / (self.t2 - self.t1), 
-            self.h(self.s, self.k),
-            next_val
+            (self.t2 - self.t) / (self.t2 - self.t1), 
+
+            # (self.s - self.s_0) / self.s_0,
+            log(self.s/self.s_0),
+
+            # (self.s - self.k) / self.k,
+            # log(self.s/self.k),
+
+            self._compute_continuation_value()
+            # exp(-self.r*self.dt)*self.h(next_price, self.k)
         ]
         return obs
 
