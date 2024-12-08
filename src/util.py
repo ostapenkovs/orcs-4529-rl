@@ -90,11 +90,13 @@ def black_scholes(t1, t2, s, r, q, v, k, call):
         return term1*norm.cdf(d1) - term2*norm.cdf(d2)
     return term2*norm.cdf(-d2) - term1*norm.cdf(-d1)
 
-def show_figure(fig):
+def show_figure(fig, title=None):
     dummy = plt.figure()
     new_manager = dummy.canvas.manager
     new_manager.canvas.figure = fig
     fig.set_canvas(new_manager.canvas)
+    
+    if title is not None: fig.suptitle(title, x=0.525, y=1.0725, weight='bold', size='large')
 
 if __name__ == '__main__':
     pass
