@@ -50,32 +50,6 @@ class QNet(nn.Module):
     def forward(self, x):
         return self.model(x)
 
-# class DuelingQNet(nn.Module):
-#     def __init__(self, obssize, actsize, hidden_dim, depth):
-#         super().__init__()
-#         self.feature_layer = nn.Sequential(
-#             nn.Linear(obssize, hidden_dim),
-#             nn.ReLU()
-#         )
-#         # Build the advantage and value streams
-#         self.advantage_layer = nn.Sequential(
-#             nn.Linear(hidden_dim, hidden_dim),
-#             nn.ReLU(),
-#             nn.Linear(hidden_dim, actsize)
-#         )
-#         self.value_layer = nn.Sequential(
-#             nn.Linear(hidden_dim, hidden_dim),
-#             nn.ReLU(),
-#             nn.Linear(hidden_dim, 1)
-#         )
-
-#     def forward(self, x):
-#         features = self.feature_layer(x)
-#         advantages = self.advantage_layer(features)
-#         values = self.value_layer(features)
-#         q_values = values + (advantages - advantages.mean())
-#         return q_values
-
 class Environment:
     def __init__(self, nsim, nstep, t1, t2, s_0, r, q, path_kwargs, h, k, gbm):
         self.rng = np.random.default_rng()
@@ -101,17 +75,6 @@ class Environment:
 
         self.DIM_STATE = len(self.reset())
 
-    # def _compute_momentum(self):
-    #     if self.curr_step > 0:
-    #         prev_price = self.prices[self.curr_sim, self.curr_step - 1]
-    #         return self.s - prev_price
-    #     return 0.0
-    
-    # def _compute_expected_future_payoff(self):
-    #     remaining_prices = self.prices[self.curr_sim, self.curr_step:]
-    #     payoffs = self.h(remaining_prices, self.k)
-    #     return np.mean(payoffs) if len(payoffs) > 0 else 0.0
-
     def _compute_continuation_value(self):
         remaining_prices = self.prices[self.curr_sim, self.curr_step+1:]
         
@@ -122,33 +85,10 @@ class Environment:
         return np.mean(discounted_payoffs) if discounted_payoffs else 0
 
     def _get_obs(self):
-        # ratio = self.s / self.k
-        # delta_ratio = ratio - self.prev_ratio
-        # self.prev_ratio = ratio
-        # momentum = self._compute_momentum()
-        # expected_payoff = self._compute_expected_future_payoff()
-        # continuation_value = self._compute_continuation_value()
-        # obs = np.array([self.S, self.t, ratio, delta_ratio, momentum, expected_payoff], dtype=np.float32)
-        # # Normalize the observation
-        # obs_mean = np.mean(obs)
-        # obs_std = np.std(obs) + 1e-5  # Add epsilon to prevent division by zero
-        # normalized_obs = (obs - obs_mean) / obs_std
-        # ratio, momentum, expected_payoff, self._intrinsic_value()
-        # next_val = log(  / self.k )
-
-        # next_price = self.prices[:, min(self.curr_step+1, self.nstep-1)].mean()
-
         obs = [
             (self.t2 - self.t) / (self.t2 - self.t1), 
-
-            # (self.s - self.s_0) / self.s_0,
             log(self.s/self.s_0),
-
-            # (self.s - self.k) / self.k,
-            # log(self.s/self.k),
-
             self._compute_continuation_value()
-            # exp(-self.r*self.dt)*self.h(next_price, self.k)
         ]
         return obs
 
